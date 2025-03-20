@@ -1,0 +1,1 @@
+export const attributesRoutePath = '/admin/plugin/attributes'
