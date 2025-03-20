@@ -1,7 +1,7 @@
 import { createStep, StepResponse, WorkflowData } from "@medusajs/framework/workflows-sdk"
-import { UpdateAttributeDTO } from "../../../modules/attribute/types/attribute/common"
 import AttributeModuleService from "../../../modules/attribute/service"
 import { ATTRIBUTE_MODULE } from "../../../modules/attribute"
+import { UpdateAttributeDTO } from "../../../types/attribute"
 
 const updateAttributesStepId = 'update-attributes'
 
@@ -14,8 +14,18 @@ export const updateAttributesStep = createStep(
             id: data.map(attribute => attribute.id)
         })
 
-        // TODO: correct type when AttributeDTO is created
-        const attributes = await service.updateAttributes(data) as any[]
+        const normalized = data.map(attr => {
+            const { values, ...attribute } = attr;
+            return {
+                attribute,
+                values
+            }
+        })
+
+        const attributes = normalized.map(({ attribute }) => attribute)
+
+        await service.updateAttributes(attributes)
+        await service.upsertAttributeValues(data)
 
         return new StepResponse(attributes, prevData)
     },
@@ -25,7 +35,7 @@ export const updateAttributesStep = createStep(
         }
 
         const service = container.resolve<AttributeModuleService>(ATTRIBUTE_MODULE)
-//@ts-expect-error
+        //@ts-expect-error
         await service.updateAttributes(prevData)
     }
 )

@@ -53,5 +53,6 @@ export const AdminUpdateAttribute = z.object({
     metadata: z.record(z.unknown()).nullish(),
     categories: z.array(z.object({
         id: z.string()
-    })).nullish()
+    })).nullish(),
+    values: z.array(AdminUpdateAttributeValue).optional()
 }).strict()
