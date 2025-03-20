@@ -1,4 +1,5 @@
 import {
+    arrayDifference,
   InjectManager,
   InjectTransactionManager,
   MedusaContext,
@@ -78,23 +79,21 @@ class AttributeModuleService extends MedusaService({
       return;
     }
 
+
+
     return await this.upsertAttributeValues_(
       normalizedAttributeValuesInput,
+      attributes.map(attr => attr.id),
       sharedContext
     );
   }
 
   @InjectTransactionManager()
   protected async upsertAttributeValues_(
-    input: UpsertAttributeValueDTO[],
+    upsert: UpsertAttributeValueDTO[],
+    attributeIds: string[],
     @MedusaContext() sharedContext?: Context<EntityManager>
   ) {
-    const attributeIds = [
-      ...new Set(
-        input.filter((val) => val.attribute_id).map((val) => val.attribute_id)
-      ),
-    ];
-
     const dbValues = await this.listAttributeValues(
       { attribute_id: attributeIds },
       { relations: ["attribute"] },
@@ -104,7 +103,7 @@ class AttributeModuleService extends MedusaService({
     const toCreate: CreateAttributeValueDTO[] = [];
     const toUpdate: UpdateAttributeValueDTO[] = [];
 
-    for (const attributeValue of input) {
+    for (const attributeValue of upsert) {
       const existentValue = attributeValue.id
         ? attributeValue
         : dbValues.find((dbVal) => dbVal.value === attributeValue.value);
@@ -119,9 +118,12 @@ class AttributeModuleService extends MedusaService({
       }
     }
 
+    const toDelete = arrayDifference(dbValues.map(val => val.id), toUpdate.map(valToKeep => valToKeep.id)) ?? []
+ 
     await Promise.all([
       this.createAttributeValues(toCreate),
       this.updateAttributeValues(toUpdate),
+      this.deleteAttributeValues(toDelete)
     ]);
     return;
   }
