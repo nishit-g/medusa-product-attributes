@@ -1,64 +1,64 @@
-<p align="center">
-  <a href="https://www.medusajs.com">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://user-images.githubusercontent.com/59018053/229103275-b5e482bb-4601-46e6-8142-244f531cebdb.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://user-images.githubusercontent.com/59018053/229103726-e5b529a3-9b3f-4970-8a1f-c6af37f087bf.svg">
-    <img alt="Medusa logo" src="https://user-images.githubusercontent.com/59018053/229103726-e5b529a3-9b3f-4970-8a1f-c6af37f087bf.svg">
-    </picture>
-  </a>
-</p>
-<h1 align="center">
-  Medusa Plugin Starter
-</h1>
+# @nicogorga/medusa-product-attributes
 
-<h4 align="center">
-  <a href="https://docs.medusajs.com">Documentation</a> |
-  <a href="https://www.medusajs.com">Website</a>
-</h4>
+Create global (category specific) product attributes on your Medusa commerce application
 
-<p align="center">
-  Building blocks for digital commerce
-</p>
-<p align="center">
-  <a href="https://github.com/medusajs/medusa/blob/master/CONTRIBUTING.md">
-    <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat" alt="PRs welcome!" />
-  </a>
-    <a href="https://www.producthunt.com/posts/medusa"><img src="https://img.shields.io/badge/Product%20Hunt-%231%20Product%20of%20the%20Day-%23DA552E" alt="Product Hunt"></a>
-  <a href="https://discord.gg/xpCwq3Kfn8">
-    <img src="https://img.shields.io/badge/chat-on%20discord-7289DA.svg" alt="Discord Chat" />
-  </a>
-  <a href="https://twitter.com/intent/follow?screen_name=medusajs">
-    <img src="https://img.shields.io/twitter/follow/medusajs.svg?label=Follow%20@medusajs" alt="Follow @medusajs" />
-  </a>
-</p>
+> [!WARNING]
+> This plugin is a WIP and I am working on it in my spare time between projects and work. Feel free to make contributions by making pull requests and proposing ideas / new flows to implement via [Discussions](https://github.com/NicolasGorga/medusa-product-attributes/discussions)
+> If this helps you, you can buy me a :coffee: or reach out to me if you need help with your MedusaJS projects :wink:
 
 ## Compatibility
 
-This starter is compatible with versions >= 2.4.0 of `@medusajs/medusa`. 
+This plugin is compatible with versions >= 2.6.1 of `@medusajs/medusa`. 
 
-## Getting Started
+## Progress 
 
-Visit the [Quickstart Guide](https://docs.medusajs.com/learn/installation) to set up a server.
+All the work has so far been done on the backend (API Layer + Workflows):
 
-Visit the [Plugins documentation](https://docs.medusajs.com/learn/fundamentals/plugins) to learn more about plugins and how to create them.
+- Create, retrieve and list attributes
+- Link \ unlink attributes to categories
+- Create values for said attributes
+- Update, delete, insert new values for existent attributes
+    - Values can initially be created on POST /admin/plugin/attributes endpoint
+    - For existent attributes, values can be created, updated, deleted depending on what is passed to POST /admin/plugin/attributes/attrId endpoint and what is currently stored in the DB
 
-Visit the [Docs](https://docs.medusajs.com/learn/installation#get-started) to learn more about our system requirements.
+## Roadmap
 
-## What is Medusa
+- Allow to link attribute values to products
+- Allow to filter products based on their attribute values
+- Introduce entities to facilitate constructing UI components in Admin Panel and filtering them in Storefront
+- Create Admin panel route / widgets to interact with attribute / attribute values and link them to products
+- Create adaptation of starter to show example of Storefront filtering products with attributes
 
-Medusa is a set of commerce modules and tools that allow you to build rich, reliable, and performant commerce applications without reinventing core commerce logic. The modules can be customized and used to build advanced ecommerce stores, marketplaces, or any product that needs foundational commerce primitives. All modules are open-source and freely available on npm.
+## Prerequisites
 
-Learn more about [Medusa’s architecture](https://docs.medusajs.com/learn/introduction/architecture) and [commerce modules](https://docs.medusajs.com/learn/fundamentals/modules/commerce-modules) in the Docs.
+- [Node.js v20 or greater](https://nodejs.org/en)
+- [A Medusa backend](https://docs.medusajs.com/learn/installation)
 
-## Community & Contributions
+## How to Install
 
-The community and core team are available in [GitHub Discussions](https://github.com/medusajs/medusa/discussions), where you can ask for support, discuss roadmap, and share ideas.
+1\. Run the following command in the directory of the Medusa backend using your package manager (for example for npm):
 
-Join our [Discord server](https://discord.com/invite/medusajs) to meet other community members.
+  ```bash
+  npm install @nicogorga/medusa-product-attributes
+  ```
 
-## Other channels
+2\. In `medusa-config.ts` add the following at the end of the `plugins` array in your project config object:
 
-- [GitHub Issues](https://github.com/medusajs/medusa/issues)
-- [Twitter](https://twitter.com/medusajs)
-- [LinkedIn](https://www.linkedin.com/company/medusajs)
-- [Medusa Blog](https://medusajs.com/blog/)
+  ```js
+  projectConfig: {
+    plugins = [
+    // ...
+    {
+      resolve: `@nicogorga/medusa-product-attributes`,
+    },
+  ]
+  }
+  ```
+
+## Additional Resources
+
+- [medusa-custom-attributes v1](https://github.com/vholik/medusa-custom-attributes)
+Props to [Viktor Holik](https://github.com/vholik), the creator, for his work as it is a great reference and has proved to be open to help
+- Github Discussions
+  - [Global / Category Based Product Options](https://github.com/medusajs/medusa/discussions/11910)
+  - [Global variant options and variant generator](https://github.com/medusajs/medusa/discussions/5119)
