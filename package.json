@@ -1,8 +1,8 @@
 {
   "name": "@nicogorga/medusa-product-attributes",
   "version": "0.0.1",
-  "description": "A starter for Medusa plugins.",
-  "author": "Medusa (https://medusajs.com)",
+  "description": "A plugin for adding attributes support to MedusaJS products",
+  "author": "Nicolas Gorga (https://github.com/NicolasGorga)",
   "license": "MIT",
   "files": [
     ".medusa/server"
