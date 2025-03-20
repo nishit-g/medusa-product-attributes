@@ -9,6 +9,17 @@ const AttributeValue = model.define('attribute_value', {
     attribute: model.belongsTo(() => Attribute, {
         mappedBy: 'values',
     })
-})
+}).indexes([
+    {
+        on: ['attribute_id', 'value'],
+        name: 'UQ_attribute_id_value',
+        unique: true,
+    },
+    {
+        on: ['attribute_id', 'rank'],
+        name: 'UQ_attribute_id_rank',
+        unique: true,
+    }
+])
 
 export default AttributeValue

@@ -251,6 +251,24 @@
           "expression": "CREATE INDEX IF NOT EXISTS \"IDX_attribute_value_deleted_at\" ON \"attribute_value\" (deleted_at) WHERE deleted_at IS NULL"
         },
         {
+          "keyName": "UQ_attribute_id_value",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE UNIQUE INDEX IF NOT EXISTS \"UQ_attribute_id_value\" ON \"attribute_value\" (attribute_id, value) WHERE deleted_at IS NULL"
+        },
+        {
+          "keyName": "UQ_attribute_id_rank",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE UNIQUE INDEX IF NOT EXISTS \"UQ_attribute_id_rank\" ON \"attribute_value\" (attribute_id, rank) WHERE deleted_at IS NULL"
+        },
+        {
           "keyName": "attribute_value_pkey",
           "columnNames": [
             "id"
