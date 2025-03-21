@@ -1,12 +1,12 @@
 import { MiddlewareRoute, validateAndTransformBody, validateAndTransformQuery } from "@medusajs/framework";
 import { AdminCreateAttribute, AdminCreateAttributeValue, AdminGetAttributeParams, AdminGetAttributesParams, AdminGetAttributeValueParams, AdminGetAttributeValuesParams, AdminUpdateAttribute } from "./validators";
 import * as QueryConfig from './query-config'
-import { attributesRoutePath } from "./utils";
+import { adminAttributesRoutePath } from "../../../utils/constants";
 
 export const adminAttributeRoutesMiddlewares: MiddlewareRoute[] = [
     {
         method: ['GET'],
-        matcher: attributesRoutePath,
+        matcher: adminAttributesRoutePath,
         middlewares: [
             validateAndTransformQuery(
                 AdminGetAttributesParams,
@@ -16,7 +16,7 @@ export const adminAttributeRoutesMiddlewares: MiddlewareRoute[] = [
     },
     {
         method: ['POST'],
-        matcher: attributesRoutePath,
+        matcher: adminAttributesRoutePath,
         middlewares: [
             validateAndTransformBody(AdminCreateAttribute),
             validateAndTransformQuery(
@@ -27,7 +27,7 @@ export const adminAttributeRoutesMiddlewares: MiddlewareRoute[] = [
     },
     {
         method: ['GET'],
-        matcher: `${attributesRoutePath}/:id`,
+        matcher: `${adminAttributesRoutePath}/:id`,
         middlewares: [
             validateAndTransformQuery(
                 AdminGetAttributeParams,
@@ -37,7 +37,7 @@ export const adminAttributeRoutesMiddlewares: MiddlewareRoute[] = [
     },
     {
         method: ['POST'],
-        matcher: `${attributesRoutePath}/:id`,
+        matcher: `${adminAttributesRoutePath}/:id`,
         middlewares: [
             validateAndTransformBody(AdminUpdateAttribute),
             validateAndTransformQuery(
@@ -48,7 +48,7 @@ export const adminAttributeRoutesMiddlewares: MiddlewareRoute[] = [
     },
     {
         method: ['GET'],
-        matcher: `${attributesRoutePath}/:id/values`,
+        matcher: `${adminAttributesRoutePath}/:id/values`,
         middlewares: [
             validateAndTransformQuery(
                 AdminGetAttributeValuesParams,
@@ -58,7 +58,7 @@ export const adminAttributeRoutesMiddlewares: MiddlewareRoute[] = [
     },
     {
         method: ['POST'],
-        matcher: `${attributesRoutePath}/:id/values`,
+        matcher: `${adminAttributesRoutePath}/:id/values`,
         middlewares: [
             validateAndTransformBody(AdminCreateAttributeValue),
             validateAndTransformQuery(
@@ -69,7 +69,7 @@ export const adminAttributeRoutesMiddlewares: MiddlewareRoute[] = [
     },
     {
         method: ['GET'],
-        matcher: `${attributesRoutePath}/:id/values/:valueId`,
+        matcher: `${adminAttributesRoutePath}/:id/values/:valueId`,
         middlewares: [
             validateAndTransformQuery(
                 AdminGetAttributeValueParams,
