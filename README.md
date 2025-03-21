@@ -23,11 +23,7 @@ All the work has so far been done on the backend (API Layer + Workflows):
 
 ## Roadmap
 
-- Allow to link attribute values to products
-- Allow to filter products based on their attribute values
-- Introduce entities to facilitate constructing UI components in Admin Panel and filtering them in Storefront
-- Create Admin panel route / widgets to interact with attribute / attribute values and link them to products
-- Create adaptation of starter to show example of Storefront filtering products with attributes
+You can check CHANGELOG.md for release changes and upcoming features under "Unreleased" section
 
 ## Prerequisites
 
