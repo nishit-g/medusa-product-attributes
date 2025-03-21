@@ -7,16 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Changed
-
-- Unique constraint on attribute_value table (attribute_id, rank), since when updating values for an attribute and swapping the "rank"
-values, the constraint made it throw. Until i find a way to do this, you could have duplicated attribute_id, rank
-
+## 0.2.0 - 2025-03-21
 ### Added
-
 - /store/plugin/attributes route to list attributes from storefront and apply query params filters
 - applyCategoryFilterIfNecessary middleware to support filtering by product category link, passing "categories" array
-as query param. Doesn't handle categories inside $and or $or params yet
+  as query param. Doesn't handle categories inside $and or $or params yet
+
+### Changed
+- Unique constraint on attribute_value table (attribute_id, rank), since when updating values for an attribute and swapping the "rank"
+  values, the constraint made it throw. Until i find a way to do this, you could have duplicated attribute_id, rank
 
 ## 0.1.1 - 2025-03-21
 ### Added
