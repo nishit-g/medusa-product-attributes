@@ -12,14 +12,7 @@ This plugin is compatible with versions >= 2.6.1 of `@medusajs/medusa`.
 
 ## Progress 
 
-All the work has so far been done on the backend (API Layer + Workflows):
-
-- Create, retrieve and list attributes
-- Link \ unlink attributes to categories
-- Create values for said attributes
-- Update, delete, insert new values for existent attributes
-    - Values can initially be created on POST /admin/plugin/attributes endpoint
-    - For existent attributes, values can be created, updated, deleted depending on what is passed to POST /admin/plugin/attributes/attrId endpoint and what is currently stored in the DB
+All the progress is recorded in CHANGELOG.md and so far, it is solely focused on backend (you can use the functionallities via API calls)
 
 ## Roadmap
 
