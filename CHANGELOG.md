@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.3.0 - 2025-03-23
 ### Added
 - ability to query products passing `attribute_value_id` filter, to filter by linked attribute values. Recreating the core /store/products route in
-/store/plugin/attributes/products route, until i get a response from Medusa regarding [this issue](https://github.com/medusajs/medusa/issues/11938).
-Since there are also limitations on complef filtering for linked tables, the values passed for `attribute_value_id` are applied with OR
+  /store/plugin/attributes/products route, until i get a response from Medusa regarding [this issue](https://github.com/medusajs/medusa/issues/11938).
+  Since there are also limitations on complef filtering for linked tables, the values passed for `attribute_value_id` are applied with OR
 
 ## 0.2.0 - 2025-03-21
 ### Added
