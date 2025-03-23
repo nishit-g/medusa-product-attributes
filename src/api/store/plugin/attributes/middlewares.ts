@@ -3,6 +3,7 @@ import { storeAttributesBaseRoute } from "../../../utils/constants";
 import { StoreGetAttributesParams } from "./validators";
 import * as QueryConfig from './query-config'
 import { applyCategoryFilterIfNecessary } from "../../../utils/middlewares";
+import { storeAttributesProductsMiddlewares } from "./products/middlewares";
 
 export const storeAttributesMiddlewaresRoute: MiddlewareRoute[] = [
     {
@@ -16,5 +17,6 @@ export const storeAttributesMiddlewaresRoute: MiddlewareRoute[] = [
             applyCategoryFilterIfNecessary(),
             clearFiltersByKey(['categories']),
         ]
-    }
+    },
+    ...storeAttributesProductsMiddlewares,
 ]
