@@ -10,7 +10,6 @@ import {
   MedusaErrorTypes,
   Modules,
 } from "@medusajs/framework/utils";
-import { StepResponse } from "@medusajs/framework/workflows-sdk";
 import attributeProductCategory from "../links/attribute-product-category";
 import { ATTRIBUTE_MODULE } from "../modules/attribute";
 import AttributeModuleService from "../modules/attribute/service";
@@ -28,7 +27,7 @@ export const productsCreatedHookHandler = async ({
   const productIds = products.map((prod) => prod.id);
 
   if (!attributeValueIds.length) {
-    return new StepResponse();
+    return [];
   }
 
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
