@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added 
+
+- Added utility function `productsCreatedHookHandler` to incorporate in your own productCreated hook handler
+
+### Removed 
+
+- productsCreated hook handler. This is a breaking change and i decided to do this because of [this issue](https://github.com/medusajs/medusa/issues/11968). See README section 3.
+
 ## 0.3.0 - 2025-03-23
 ### Added
 - ability to query products passing `attribute_value_id` filter, to filter by linked attribute values. Recreating the core /store/products route in
