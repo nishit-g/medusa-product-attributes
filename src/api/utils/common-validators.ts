@@ -13,6 +13,12 @@ export const StoreGetAttributeParamsDirectFields = z.object({
 
 export const GetAttributesParams = z
     .object({
-        categories: z.union([z.string(), z.array(z.string())]).optional(),
+        product_category_id: z.union([z.string(), z.array(z.string())]).optional(),
+        include_globals: z.preprocess(
+            (val) => {
+                return val === 'true'
+            },
+            z.boolean().default(true),
+        )
     })
     .merge(StoreGetAttributeParamsDirectFields)
