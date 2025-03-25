@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- `addGlobalAttributesIfNecessary` middleware to allow returning global attributes when requesting attributes linked to a category, by specifying `include_globals` query param. Defaults to true if not specified
+
 ## 1.0.0 - 2025-03-25
 ### Added
 - Added utility function `productsCreatedHookHandler` to incorporate in your own productCreated hook handler
