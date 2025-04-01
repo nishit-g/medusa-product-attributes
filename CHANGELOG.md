@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.2.0 - 2025-04-01
 ### Added
 - New `productsUpdatedHookHandler` utility function, to include in your own `updatedProducstWorkflow.productsUpdated` hook, to be able to pass attribute values when updating a product
 
