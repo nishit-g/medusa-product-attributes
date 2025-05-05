@@ -6,7 +6,6 @@ export const defaultAdminAttributeSetFields = [
     'metadata',
     '*attributes',
     '*attributes.values',
-    '*attributes.product_categories'
 ]
 
 export const retrieveAttributeSetQueryConfig = {

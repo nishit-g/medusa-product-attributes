@@ -9,7 +9,7 @@ export const createAttributeSetStepId = 'create-attribute-set'
 
 export const createAttributeSetStep = createStep(
     createAttributeSetStepId,
-    async (input: Omit<CreateAttributeSetDTO, 'categories'> | Omit<CreateAttributeSetDTO, 'categories'>[], { container }) => {
+    async (input: CreateAttributeSetDTO | CreateAttributeSetDTO[], { container }) => {
         const attributeModuleService = container.resolve<AttributeModuleService>(ATTRIBUTE_MODULE)
 
         const normalizedInput = Array.isArray(input) ? input : [input]

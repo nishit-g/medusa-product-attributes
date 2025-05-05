@@ -4,5 +4,4 @@ export type CreateAttributeSetDTO = {
     description?: string
     metadata?: Record<string, unknown> | null
     attributes?: string[]
-    categories?: string[]
 }

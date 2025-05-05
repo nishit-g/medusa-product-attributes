@@ -6,7 +6,6 @@ const AdminBaseAttributeSet = z.object({
     description: z.string().optional(),
     handle: z.string().optional(),
     metadata: z.record(z.unknown()).nullish(),
-    categories: z.array(z.string()).optional(),
     attributes: z.array(z.string()).optional(),
 }).strict()
 
