@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - New AttributeSet entity and API route to create a set and link Attributes to it. This is useful for example, to create an AttributeSet 'Measurements' and link individual values like "Chest", "Sleeve", etc to create a group of related attributes.
 
+## 1.2.1 - 2025-04-01
+### Removed
+- updateProductsWorkflow hook handler
+
 ## 1.2.0 - 2025-04-01
 ### Added
 - New `productsUpdatedHookHandler` utility function, to include in your own `updatedProducstWorkflow.productsUpdated` hook, to be able to pass attribute values when updating a product
