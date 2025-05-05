@@ -11,7 +11,7 @@ const Attribute = model.define('attribute', {
     handle: model.text().unique(),
     metadata: model.json().nullable(),
     values: model.hasMany(() => AttributeValue),
-    sets: model.hasMany(() => AttributeSet),
+    sets: model.manyToMany(() => AttributeSet, { mappedBy: 'attributes' }),
 }).cascades({
     delete: ['values']
 })

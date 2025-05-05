@@ -7,9 +7,12 @@ const AttributeSet = model.define('attribute_set', {
     description: model.text().nullable(),
     handle: model.text().unique(),
     metadata: model.json().nullable(),
-    attributes: model.hasMany(() => Attribute),
-}).cascades({
-    delete: ['attributes']
+    attributes: model.manyToMany(() => Attribute, {
+        mappedBy: 'sets',
+        pivotTable: 'attribute_set_attributes',
+        join_column: 'attribute_set_id',
+        inverseJoinColumn: 'attribute_id',
+    }),
 })
 
 export default AttributeSet 
