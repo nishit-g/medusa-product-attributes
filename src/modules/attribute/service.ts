@@ -15,6 +15,7 @@ import {
   UpdateAttributeValueDTO,
 } from "../../types/attribute";
 import AttributeValue from "./models/attribute-value";
+import AttributeSet from "./models/attribute-set";
 
 type InjectedDependencies = {
   baseRepository: DAL.RepositoryService;
@@ -23,6 +24,7 @@ type InjectedDependencies = {
 class AttributeModuleService extends MedusaService({
   Attribute,
   AttributeValue,
+  AttributeSet,
 }) {
   protected baseRepository_: DAL.RepositoryService;
 

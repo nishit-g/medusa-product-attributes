@@ -8,9 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Added
+- New AttributeSet entity and API route to create a set and link Attributes to it. This is useful for example, to create an AttributeSet 'Measurements' and link individual values like "Chest", "Sleeve", etc to create a group of related attributes.
+
+## 1.2.0 - 2025-04-01
+### Added
+- New `productsUpdatedHookHandler` utility function, to include in your own `updatedProducstWorkflow.productsUpdated` hook, to be able to pass attribute values when updating a product
+
+## 1.1.0 - 2025-03-25
+### Added
+- `addGlobalAttributesIfNecessary` middleware to allow returning global attributes when requesting attributes linked to a category, by specifying `include_globals` query param. Defaults to true if not specified
+
+## 1.0.0 - 2025-03-25
+### Added
+- Added utility function `productsCreatedHookHandler` to incorporate in your own productCreated hook handler
+
+### Removed
+- productsCreated hook handler. This is a breaking change and i decided to do this because of [this issue](https://github.com/medusajs/medusa/issues/11968). See README section 3.
+
+## 0.3.0 - 2025-03-23
+### Added
 - ability to query products passing `attribute_value_id` filter, to filter by linked attribute values. Recreating the core /store/products route in
-/store/plugin/attributes/products route, until i get a response from Medusa regarding [this issue](https://github.com/medusajs/medusa/issues/11938).
-Since there are also limitations on complef filtering for linked tables, the values passed for `attribute_value_id` are applied with OR
+  /store/plugin/attributes/products route, until i get a response from Medusa regarding [this issue](https://github.com/medusajs/medusa/issues/11938).
+  Since there are also limitations on complef filtering for linked tables, the values passed for `attribute_value_id` are applied with OR
 
 ## 0.2.0 - 2025-03-21
 ### Added
