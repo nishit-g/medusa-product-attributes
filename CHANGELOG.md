@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.3.0 - 2025-05-05
 ### Added
 - New AttributeSet entity and API route to create a set and link Attributes to it. This is useful for example, to create an AttributeSet 'Measurements' and link individual values like "Chest", "Sleeve", etc to create a group of related attributes.
 
