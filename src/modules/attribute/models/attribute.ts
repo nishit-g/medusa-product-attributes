@@ -1,5 +1,6 @@
-import { model } from "@medusajs/framework/utils"
+import AttributeSet from "./attribute-set"
 import AttributeValue from "./attribute-value"
+import { model } from "@medusajs/framework/utils"
 
 const Attribute = model.define('attribute', {
     id: model.id({ prefix: 'attr' }).primaryKey(),
@@ -10,6 +11,7 @@ const Attribute = model.define('attribute', {
     handle: model.text().unique(),
     metadata: model.json().nullable(),
     values: model.hasMany(() => AttributeValue),
+    sets: model.manyToMany(() => AttributeSet, { mappedBy: 'attributes' }),
 }).cascades({
     delete: ['values']
 })
