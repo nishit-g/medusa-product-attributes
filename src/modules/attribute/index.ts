@@ -1,5 +1,5 @@
-import { Module } from "@medusajs/framework/utils"
 import AttributeModuleService from "./service"
+import { Module } from "@medusajs/framework/utils"
 
 export const ATTRIBUTE_MODULE = 'attribute'
 
