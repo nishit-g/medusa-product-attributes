@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added 
+- New AttributePossibleValue entity, to optionally restrict the possible values for an attribute. These possible vlaues will be used as a blueprint when actually linkng an attribute value to a product.
+
+### Changed
+- We no longer link a Product to an already existing AttributeValue, but rather, specify the 'value' property and an AttributeValue is created on the fly. This allows for more flexibility, since a Product can now be linked to an AttributeValue, for an Attribute that has potentially inifinite possibilities. Otherwise, you would need to create in advance all of these values
 
 ## 1.3.0 - 2025-05-05
 ### Added
