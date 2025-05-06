@@ -1,11 +1,10 @@
 import { WorkflowResponse, createWorkflow, transform } from "@medusajs/framework/workflows-sdk"
+import { createAttributeValueStep, validateAttributeValueStep } from "../steps"
 
 import { ATTRIBUTE_MODULE } from "../../../modules/attribute"
 import { CreateProductAttributeValueDTO } from "../../../modules/attribute/types"
-import { LinkDefinition } from "@medusajs/framework/types"
 import { Modules } from "@medusajs/framework/utils"
-import { createAttributeValueStep } from "../steps"
-import { createRemoteLinkStep } from "@medusajs/medusa/core-flows"
+import { createRemoteLinkStep, } from "@medusajs/medusa/core-flows"
 
 export const createAttributeValueWorkflowId = 'create-attribute-value'
 
@@ -16,6 +15,8 @@ export const createAttributeValueWorkflow = createWorkflow(
             const { product_id, ...attributeValue } = input
             return attributeValue
         })
+ 
+        validateAttributeValueStep(input)
         
         const attributeValue = createAttributeValueStep(attributeValueWithoutExternalRelations)
 

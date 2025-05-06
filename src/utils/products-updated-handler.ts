@@ -1,9 +1,10 @@
+import { createAttributeValueWorkflow, deleteAttributeValueWorkflow } from "../workflows/attribute-value/workflow";
+
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { MedusaContainer } from "@medusajs/framework";
-import { LinkDefinition, ProductDTO } from "@medusajs/framework/types";
-import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
+import { ProductAttributeValueDTO } from "../types/attribute";
+import { ProductDTO } from "@medusajs/framework/types";
 import { validateAttributeValuesToLink } from "./validate-attribute-values-to-link";
-import attributeValueProduct from "../links/attribute-value-product";
-import { ATTRIBUTE_MODULE } from "../modules/attribute";
 
 export const productsUpdatedHookHandler = async ({
   products,
@@ -14,10 +15,14 @@ export const productsUpdatedHookHandler = async ({
   additional_data: Record<string, unknown> | undefined;
   container: MedusaContainer;
 }) => {
-  const attributeValueIds = (additional_data?.values ?? []) as string[];
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  
+  const attributeValues = (additional_data?.values ?? []) as ProductAttributeValueDTO[];
   const productIds = products.map((prod) => prod.id);
 
-  const query = container.resolve(ContainerRegistrationKeys.QUERY);
+  if (!attributeValues.length) {
+    return [];
+  }
 
   // Refetch so we can make sure categories are included for validation
   const { data: refetchedProducts } = await query.graph({
@@ -28,52 +33,77 @@ export const productsUpdatedHookHandler = async ({
     }
   })
 
-  if (!attributeValueIds.length) {
-    return [];
-  }
-
-  const link = container.resolve(ContainerRegistrationKeys.LINK);
-
   await validateAttributeValuesToLink({
-    attributeValueIds,
     products: refetchedProducts,
+    attributeValues,
     container,
-  });
+  })
 
-  const { data: oldLinkedRecordsToDismiss } = await query.graph({
-    entity: attributeValueProduct.entryPoint,
-    fields: ['product_id', 'attribute_value_id'],
+  const updated = await Promise.all(productIds.flatMap(prodId => attributeValues.map(async attrVal => {
+    const { result } = await createAttributeValueWorkflow(container).run({
+      input: {
+        attribute_id: attrVal.attribute_id,
+        value: attrVal.value,
+        product_id: prodId,
+      }
+    })
+    return result
+  })))
+
+  const newValueIds = updated.map(val => val.id)
+
+  const { data } = await query.graph({
+    entity: 'attribute_value',
+    fields: ['id'],
     filters: {
-        product_id: productIds,
-        attribute_value_id: {
-            $nin: attributeValueIds
-        }
+      id: {
+        $ne: newValueIds
+      }
     }
   })
 
-  if (oldLinkedRecordsToDismiss.length) {
-    const linksToDismiss: LinkDefinition[] = oldLinkedRecordsToDismiss.map(record => ({
-        [ATTRIBUTE_MODULE]: {
-            attribute_value_id: record.attribute_value_id
-        },
-        [Modules.PRODUCT]: {
-            product_id: record.product_id,
-        }
-    }))
-    await link.dismiss(linksToDismiss);
+  if (!data.length) {
+    return;
   }
+  
+  await deleteAttributeValueWorkflow(container).run({
+    input: data.map(val => val.id)
+  })
 
-  const links: LinkDefinition[] = attributeValueIds.flatMap((attrValId) =>
-    productIds.map((prodId) => ({
-      [ATTRIBUTE_MODULE]: {
-        attribute_value_id: attrValId,
-      },
-      [Modules.PRODUCT]: {
-        product_id: prodId,
-      },
-    }))
-  );
+  // const { data: oldLinkedRecordsToDismiss } = await query.graph({
+  //   entity: attributeValueProduct.entryPoint,
+  //   fields: ['product_id', 'attribute_value_id'],
+  //   filters: {
+  //       product_id: productIds,
+  //       attribute_value_id: {
+  //           $nin: attributeValueIds
+  //       }
+  //   }
+  // })
 
-  await link.create(links);
-  return links;
+  // if (oldLinkedRecordsToDismiss.length) {
+  //   const linksToDismiss: LinkDefinition[] = oldLinkedRecordsToDismiss.map(record => ({
+  //       [ATTRIBUTE_MODULE]: {
+  //           attribute_value_id: record.attribute_value_id
+  //       },
+  //       [Modules.PRODUCT]: {
+  //           product_id: record.product_id,
+  //       }
+  //   }))
+  //   await link.dismiss(linksToDismiss);
+  // }
+
+  // const links: LinkDefinition[] = attributeValueIds.flatMap((attrValId) =>
+  //   productIds.map((prodId) => ({
+  //     [ATTRIBUTE_MODULE]: {
+  //       attribute_value_id: attrValId,
+  //     },
+  //     [Modules.PRODUCT]: {
+  //       product_id: prodId,
+  //     },
+  //   }))
+  // );
+
+  // await link.create(links);
+  // return links;
 }; 
