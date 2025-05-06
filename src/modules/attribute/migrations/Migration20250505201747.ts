@@ -8,6 +8,7 @@ export class Migration20250505201747 extends Migration {
     this.addSql(`CREATE INDEX IF NOT EXISTS "IDX_attribute_possible_value_deleted_at" ON "attribute_possible_value" (deleted_at) WHERE deleted_at IS NULL;`);
     this.addSql(`CREATE UNIQUE INDEX IF NOT EXISTS "UQ_attribute_id_value" ON "attribute_possible_value" (attribute_id, value) WHERE deleted_at IS NULL;`);
 
+    this.addSql(`alter table if exists "attribute_possible_value" drop constraint if exists "attribute_possible_value_attribute_id_foreign";`);
     this.addSql(`alter table if exists "attribute_possible_value" add constraint "attribute_possible_value_attribute_id_foreign" foreign key ("attribute_id") references "attribute" ("id") on update cascade;`);
 
     this.addSql(`drop index if exists "UQ_attribute_id_value";`);
