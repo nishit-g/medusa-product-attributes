@@ -4,6 +4,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { MedusaContainer } from "@medusajs/framework";
 import { ProductAttributeValueDTO } from "../types/attribute";
 import { ProductDTO } from "@medusajs/framework/types";
+import attributeValueProduct from "../links/attribute-value-product";
 import { validateAttributeValuesToLink } from "./validate-attribute-values-to-link";
 
 export const productsUpdatedHookHandler = async ({
@@ -24,25 +25,38 @@ export const productsUpdatedHookHandler = async ({
     return [];
   }
 
-  const updated = await Promise.all(productIds.flatMap(prodId => attributeValues.map(async attrVal => {
-    const { result } = await createAttributeValueWorkflow(container).run({
-      input: {
-        attribute_id: attrVal.attribute_id,
-        value: attrVal.value,
-        product_id: prodId,
+  const updatedValueIds = (await Promise.all(productIds.map(async prodId => {
+    const { data: productValues } = await query.graph({
+      entity: attributeValueProduct.entryPoint,
+      fields: ['attribute_value.id', 'attribute_value.value'],
+      filters: {
+        product_id: prodId
       }
     })
-    return result
-  })))
 
-  const newValueIds = updated.map(val => val.id)
+    return Promise.all(attributeValues.map(async attrVal => {
+      const existentProductValue = productValues.find(prodVal => prodVal.attribute_value.value === attrVal.value)
+      if (existentProductValue) {
+        return existentProductValue.attribute_value.id as string
+      }
+
+      const { result } = await createAttributeValueWorkflow(container).run({
+        input: {
+          attribute_id: attrVal.attribute_id,
+          value: attrVal.value,
+          product_id: prodId,
+        }
+      })
+      return result.id
+    }))
+  }))).flat()
 
   const { data } = await query.graph({
     entity: 'attribute_value',
     fields: ['id'],
     filters: {
       id: {
-        $ne: newValueIds
+        $nin: updatedValueIds
       }
     }
   })
