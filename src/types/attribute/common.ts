@@ -160,3 +160,14 @@ export interface UpdateAttributeValueDTO {
      */
     attribute_id?: string
 }
+
+export interface ProductAttributeValueDTO {
+    /**
+     * The value of the attribute value.
+     */
+    value: string;
+     /**
+     * The id of the associated attribute.
+     */
+    attribute_id: string;
+}

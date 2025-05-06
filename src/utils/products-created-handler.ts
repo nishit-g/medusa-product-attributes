@@ -1,13 +1,10 @@
 import {
-  LinkDefinition,
   MedusaContainer,
   ProductDTO,
 } from "@medusajs/framework/types";
-import {
-  ContainerRegistrationKeys,
-  Modules,
-} from "@medusajs/framework/utils";
-import { ATTRIBUTE_MODULE } from "../modules/attribute";
+
+import { ProductAttributeValueDTO } from "../types/attribute";
+import { createAttributeValueWorkflow } from "../workflows/attribute-value/workflow";
 import { validateAttributeValuesToLink } from "./validate-attribute-values-to-link";
 
 export const productsCreatedHookHandler = async ({
@@ -19,34 +16,26 @@ export const productsCreatedHookHandler = async ({
   additional_data: Record<string, unknown> | undefined;
   container: MedusaContainer;
 }) => {
-  const attributeValueIds = (additional_data?.values ?? []) as string[];
+  const attributeValues = (additional_data?.values ?? []) as ProductAttributeValueDTO[];
   const productIds = products.map((prod) => prod.id);
 
-  if (!attributeValueIds.length) {
+  if (!attributeValues.length) {
     return [];
   }
 
   await validateAttributeValuesToLink({
     products,
-    attributeValueIds,
+    attributeValues,
     container,
   })
 
-  const link = container.resolve(ContainerRegistrationKeys.LINK);
-
-  // Since the workflow with additional data is called from POST products endpoint,
-  // this will always link the series of attributes with only one product
-  const links: LinkDefinition[] = attributeValueIds.flatMap((attrValId) =>
-    productIds.map((prodId) => ({
-      [ATTRIBUTE_MODULE]: {
-        attribute_value_id: attrValId,
-      },
-      [Modules.PRODUCT]: {
+  await Promise.all(productIds.flatMap(prodId => attributeValues.map(async attrVal => {
+    return createAttributeValueWorkflow(container).run({
+      input: {
+        attribute_id: attrVal.attribute_id,
+        value: attrVal.value,
         product_id: prodId,
-      },
-    }))
-  );
-
-  await link.create(links);
-  return links;
+      }
+    })
+  })))
 };
