@@ -5,7 +5,7 @@ export const defaultAdminAttributeSetFields = [
     'handle',
     'metadata',
     '*attributes',
-    '*attributes.values',
+    '*attributes.possible_values',
 ]
 
 export const retrieveAttributeSetQueryConfig = {

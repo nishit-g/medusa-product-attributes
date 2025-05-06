@@ -23,12 +23,6 @@ export const productsCreatedHookHandler = async ({
     return [];
   }
 
-  await validateAttributeValuesToLink({
-    products,
-    attributeValues,
-    container,
-  })
-
   await Promise.all(productIds.flatMap(prodId => attributeValues.map(async attrVal => {
     return createAttributeValueWorkflow(container).run({
       input: {
