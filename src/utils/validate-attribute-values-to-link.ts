@@ -1,96 +1,67 @@
-import { MedusaContainer, ProductDTO } from "@medusajs/framework/types";
 import {
   ContainerRegistrationKeys,
-  arrayDifference,
   MedusaError,
   MedusaErrorTypes,
 } from "@medusajs/framework/utils";
-import attributeProductCategory from "../links/attribute-product-category";
-import { ATTRIBUTE_MODULE } from "../modules/attribute";
-import AttributeModuleService from "../modules/attribute/service";
+import { InferTypeOf, MedusaContainer, ProductCategoryDTO, ProductDTO } from "@medusajs/framework/types";
+
+import Attribute from "../modules/attribute/models/attribute";
+import { ProductAttributeValueDTO } from "../types/attribute";
 
 export const validateAttributeValuesToLink = async ({
-  attributeValueIds,
+  attributeValues,
   products,
   container,
 }: {
-  attributeValueIds: string[];
+  attributeValues: ProductAttributeValueDTO[];
   products: ProductDTO[];
   container: MedusaContainer;
 }) => {
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
-  const attributeModuleService =
-    container.resolve<AttributeModuleService>(ATTRIBUTE_MODULE);
 
-  const existentAttributeValues =
-    await attributeModuleService.listAttributeValues({
-      id: attributeValueIds,
-    });
+  const attributeMap = new Map<string, InferTypeOf<typeof Attribute> & { product_categories?: ProductCategoryDTO[] }>()
 
-  const inexistentAttributeValues = arrayDifference(
-    attributeValueIds,
-    existentAttributeValues.map((val) => val.id)
-  );
-  if (inexistentAttributeValues.length) {
-    throw new MedusaError(
-      MedusaErrorTypes.NOT_FOUND,
-      `Attribute values with the following ids were not found:\n${inexistentAttributeValues.join(
-        ", "
-      )}`
-    );
-  }
+  for (const attrVal of attributeValues) {
+    const id = attrVal.attribute_id
 
-  const productCategoryIds = products
-    .filter((prod) => prod.categories)
-    .flatMap((prod) => prod.categories!.map((cat) => cat.id));
-  const attributeCategoriesMap = new Map<string, string[]>();
-  
-  // attributes linked to product categories
-  const { data: attributeCategory } = await query.graph({
-    entity: attributeProductCategory.entryPoint,
-    fields: ["product_category_id", "attribute_id"],
-    filters: {
-      attribute_id: existentAttributeValues.map(
-        (attrVal) => attrVal.attribute_id
-      ),
-    },
-  });
-
-  attributeCategory.map((attrCat) => {
-    const attributeId = attrCat.attribute_id;
-    const currentCategories = attributeCategoriesMap.get(attributeId) ?? [];
-
-    attributeCategoriesMap.set(
-      attributeId,
-      currentCategories.concat(attrCat.product_category_id)
-    );
-  });
-
-  const invalidCategoryConstrainedValues: string[] = [];
-  for (const attributeValue of existentAttributeValues) {
-    const attributeCategories = attributeCategoriesMap.get(
-      attributeValue.attribute_id
-    );
-    if (!attributeCategories) {
-      continue;
+    if (!attributeMap.get(id)) {
+      const { data: [attribute] } = await query.graph({
+        entity: 'attribute',
+        fields: ['product_categories.*', 'possible_values.*'],
+        filters: {
+          id: id
+        }
+      }) 
+      
+      attributeMap.set(id, attribute)
     }
 
-    if (
-      productCategoryIds.some((prodCat) =>
-        attributeCategories.includes(prodCat)
-      )
-    ) {
-      continue;
-    }
+    const allowedValues = attributeMap.get(id)?.possible_values?.map(posVal => posVal.value)
 
-    invalidCategoryConstrainedValues.push(attributeValue.id);
+    if (allowedValues?.length && !allowedValues.includes(attrVal.value)) {
+      throw new MedusaError(MedusaErrorTypes.INVALID_DATA, `Attribute ${attrVal.attribute_id} doesn't define ${attrVal.value} as a possible_value`)
+    }
   }
-  if (invalidCategoryConstrainedValues.length) {
-    throw new MedusaError(
-      MedusaErrorTypes.INVALID_DATA,
-      `At least one of the products is not linked to one of the categories required for values:\n${invalidCategoryConstrainedValues.join(
-        ", "
-      )}`
-    );
+
+  const attributeCategoryIds = Array.from(new Set(
+    Array.from(attributeMap.values())
+      .flatMap(attr => attr.product_categories?.map(cat => cat.id) || [])
+  ))
+
+  if (!attributeCategoryIds.length) {
+    // If all attributes are global, we don't enforce for product.categories to include the attribute.product_categories, since there are none
+    return;
+  }
+
+  const invalidProductIds: string[] = []
+  for (const product of products) {
+    const productCategoryIds = product.categories?.map(cat => cat.id)
+    if (!productCategoryIds?.some(prodCatId => attributeCategoryIds.includes(prodCatId))) {
+      invalidProductIds.push(product.id)
+    }
+  }
+
+  if (invalidProductIds.length) {
+    throw new MedusaError(MedusaErrorTypes.INVALID_DATA, `The following products aren't linked to any category from the requested attributes:\n${invalidProductIds.join(', ')}`)
   }
 };

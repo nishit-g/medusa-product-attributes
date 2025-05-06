@@ -1,9 +1,11 @@
+import { createAttributeValueWorkflow, deleteAttributeValueWorkflow } from "../workflows/attribute-value/workflow";
+
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { MedusaContainer } from "@medusajs/framework";
-import { LinkDefinition, ProductDTO } from "@medusajs/framework/types";
-import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
-import { validateAttributeValuesToLink } from "./validate-attribute-values-to-link";
+import { ProductAttributeValueDTO } from "../types/attribute";
+import { ProductDTO } from "@medusajs/framework/types";
 import attributeValueProduct from "../links/attribute-value-product";
-import { ATTRIBUTE_MODULE } from "../modules/attribute";
+import { validateAttributeValuesToLink } from "./validate-attribute-values-to-link";
 
 export const productsUpdatedHookHandler = async ({
   products,
@@ -14,66 +16,56 @@ export const productsUpdatedHookHandler = async ({
   additional_data: Record<string, unknown> | undefined;
   container: MedusaContainer;
 }) => {
-  const attributeValueIds = (additional_data?.values ?? []) as string[];
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  
+  const attributeValues = (additional_data?.values ?? []) as ProductAttributeValueDTO[];
   const productIds = products.map((prod) => prod.id);
 
-  const query = container.resolve(ContainerRegistrationKeys.QUERY);
-
-  // Refetch so we can make sure categories are included for validation
-  const { data: refetchedProducts } = await query.graph({
-    entity: 'product',
-    fields: ['id', 'categories.*'],
-    filters: {
-        id: productIds,
-    }
-  })
-
-  if (!attributeValueIds.length) {
+  if (!attributeValues.length) {
     return [];
   }
 
-  const link = container.resolve(ContainerRegistrationKeys.LINK);
+  const updatedValueIds = (await Promise.all(productIds.map(async prodId => {
+    const { data: productValues } = await query.graph({
+      entity: attributeValueProduct.entryPoint,
+      fields: ['attribute_value.id', 'attribute_value.value'],
+      filters: {
+        product_id: prodId
+      }
+    })
 
-  await validateAttributeValuesToLink({
-    attributeValueIds,
-    products: refetchedProducts,
-    container,
-  });
+    return Promise.all(attributeValues.map(async attrVal => {
+      const existentProductValue = productValues.find(prodVal => prodVal.attribute_value.value === attrVal.value)
+      if (existentProductValue) {
+        return existentProductValue.attribute_value.id as string
+      }
 
-  const { data: oldLinkedRecordsToDismiss } = await query.graph({
-    entity: attributeValueProduct.entryPoint,
-    fields: ['product_id', 'attribute_value_id'],
-    filters: {
-        product_id: productIds,
-        attribute_value_id: {
-            $nin: attributeValueIds
+      const { result } = await createAttributeValueWorkflow(container).run({
+        input: {
+          attribute_id: attrVal.attribute_id,
+          value: attrVal.value,
+          product_id: prodId,
         }
+      })
+      return result.id
+    }))
+  }))).flat()
+
+  const { data } = await query.graph({
+    entity: 'attribute_value',
+    fields: ['id'],
+    filters: {
+      id: {
+        $nin: updatedValueIds
+      }
     }
   })
 
-  if (oldLinkedRecordsToDismiss.length) {
-    const linksToDismiss: LinkDefinition[] = oldLinkedRecordsToDismiss.map(record => ({
-        [ATTRIBUTE_MODULE]: {
-            attribute_value_id: record.attribute_value_id
-        },
-        [Modules.PRODUCT]: {
-            product_id: record.product_id,
-        }
-    }))
-    await link.dismiss(linksToDismiss);
+  if (!data.length) {
+    return;
   }
-
-  const links: LinkDefinition[] = attributeValueIds.flatMap((attrValId) =>
-    productIds.map((prodId) => ({
-      [ATTRIBUTE_MODULE]: {
-        attribute_value_id: attrValId,
-      },
-      [Modules.PRODUCT]: {
-        product_id: prodId,
-      },
-    }))
-  );
-
-  await link.create(links);
-  return links;
+  
+  await deleteAttributeValueWorkflow(container).run({
+    input: data.map(val => val.id)
+  })
 }; 

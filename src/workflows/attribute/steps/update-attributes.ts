@@ -1,6 +1,7 @@
-import { createStep, StepResponse, WorkflowData } from "@medusajs/framework/workflows-sdk"
-import AttributeModuleService from "../../../modules/attribute/service"
+import { StepResponse, WorkflowData, createStep } from "@medusajs/framework/workflows-sdk"
+
 import { ATTRIBUTE_MODULE } from "../../../modules/attribute"
+import AttributeModuleService from "../../../modules/attribute/service"
 import { UpdateAttributeDTO } from "../../../types/attribute"
 
 const updateAttributesStepId = 'update-attributes'
@@ -15,17 +16,20 @@ export const updateAttributesStep = createStep(
         })
 
         const normalized = data.map(attr => {
-            const { values, ...attribute } = attr;
+            const { possible_values: values, ...attribute } = attr;
+            const valuesWithAttribute = values?.map(val => ({ ...val, attribute_id: attribute.id }))
             return {
-                attribute,
-                values
+                ...attr,
+                possible_values: valuesWithAttribute
             }
         })
 
-        const attributes = normalized.map(({ attribute }) => attribute)
+        const attributes = normalized.map((element) => {
+            const { categories, ...attr } = element
+            return attr
+        })
 
-        await service.updateAttributes(attributes)
-        await service.upsertAttributeValues(data)
+        await service.updateAttributeWithUpsertOrReplacePossibleValues(normalized)
 
         return new StepResponse(attributes, prevData)
     },

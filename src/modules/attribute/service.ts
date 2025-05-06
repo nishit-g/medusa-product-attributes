@@ -6,7 +6,7 @@ import {
   MedusaService,
 } from "@medusajs/framework/utils";
 import Attribute from "./models/attribute";
-import { Context, DAL } from "@medusajs/framework/types";
+import { Context, DAL, InferTypeOf } from "@medusajs/framework/types";
 import { EntityManager } from "@mikro-orm/knex";
 import {
   CreateAttributeValueDTO,
@@ -16,21 +16,32 @@ import {
 } from "../../types/attribute";
 import AttributeValue from "./models/attribute-value";
 import AttributeSet from "./models/attribute-set";
+import AttributePossibleValue from "./models/attribute-possible-value";
+
+type Attribute = InferTypeOf<typeof Attribute>
+type AttributePossibleValue = InferTypeOf<typeof AttributePossibleValue>
 
 type InjectedDependencies = {
-  baseRepository: DAL.RepositoryService;
+  attributeRepository: DAL.RepositoryService<Attribute>;
+  attributePossibleValueRepository: DAL.RepositoryService<AttributePossibleValue>;
 };
 
 class AttributeModuleService extends MedusaService({
   Attribute,
   AttributeValue,
   AttributeSet,
+  AttributePossibleValue,
 }) {
-  protected baseRepository_: DAL.RepositoryService;
+  protected attributeRepository_: DAL.RepositoryService<Attribute>;
+  protected attributePossibleValueRepository_: DAL.RepositoryService<AttributePossibleValue>;
 
-  constructor({ baseRepository }: InjectedDependencies) {
+  constructor({
+    attributeRepository,
+    attributePossibleValueRepository,
+  }: InjectedDependencies) {
     super(...arguments);
-    this.baseRepository_ = baseRepository;
+    this.attributeRepository_ = attributeRepository;
+    this.attributePossibleValueRepository_ = attributePossibleValueRepository;
   }
 
   /**
@@ -38,96 +49,53 @@ class AttributeModuleService extends MedusaService({
    * @param input
    * @param sharedContext
    *
-   * Useful to update attribute, allowing to upsert values in the same operation. If "id"
-   * is not porvided for "values" entries, it will lookup the DB by attributeValue.value,
+   * Useful to update attribute, allowing to upsert possible_values in the same operation. If "id"
+   * is not provided for "possible_values" entries, it will lookup the DB by attributePossibleValue.value,
    * to update or create accordingly.
-   * 
-   * Assumes caller will eventually refetch entities, for now, to reduce complexity of this 
+   *
+   * Assumes caller will eventually refetch entities, for now, to reduce complexity of this
    * method and concentrate on upserting like ProductOption - ProductOptionValue from Medusa
    */
   @InjectManager()
-  async upsertAttributeValues(
+  async updateAttributeWithUpsertOrReplacePossibleValues(
     input: UpdateAttributeDTO | UpdateAttributeDTO[],
     @MedusaContext() sharedContext?: Context<EntityManager>
   ) {
-    const normalizedAttributesInput = (
-      Array.isArray(input) ? input : [input]
-    ).map((attr) => {
-      const { values, ...attribute } = attr;
-      return {
-        attribute,
-        values,
-      };
-    });
+    const normalizedInput = Array.isArray(input) ? input : [input];
 
-    const attributes = normalizedAttributesInput.map(
-      ({ attribute }) => attribute
-    );
-
-    await this.updateAttributes(attributes, undefined, sharedContext);
-
-    const normalizedAttributeValuesInput = (
-      Array.isArray(input) ? input : [input]
-    )
-      .filter((attr) => attr.values?.length)
-      .flatMap((attr) =>
-        attr.values!.map((attrVal) => ({
-          ...attrVal,
-          attribute_id: attr.id,
-        }))
-      );
-
-    if (!normalizedAttributeValuesInput.length) {
-      return;
-    }
-
-
-
-    return await this.upsertAttributeValues_(
-      normalizedAttributeValuesInput,
-      attributes.map(attr => attr.id),
+    return this.updateAttributeWithUpsertOrReplacePossibleValues_(
+      normalizedInput,
       sharedContext
     );
   }
 
   @InjectTransactionManager()
-  protected async upsertAttributeValues_(
-    upsert: UpsertAttributeValueDTO[],
-    attributeIds: string[],
+  protected async updateAttributeWithUpsertOrReplacePossibleValues_(
+    input: UpdateAttributeDTO[],
     @MedusaContext() sharedContext?: Context<EntityManager>
   ) {
-    const dbValues = await this.listAttributeValues(
-      { attribute_id: attributeIds },
-      { relations: ["attribute"] },
+    // When debugging this, it only seems to have the id proprty returned
+    // so i refetch the entities
+    const upsertedValues = await this.attributePossibleValueRepository_.upsert(
+      input.flatMap((element) => element.possible_values),
       sharedContext
     );
 
-    const toCreate: CreateAttributeValueDTO[] = [];
-    const toUpdate: UpdateAttributeValueDTO[] = [];
+    // const upsertedValues = await this.listAttributePossibleValues({
+    //   id: upsertedValuesWithoutFields.map(val => val.id)
+    // }, undefined, sharedContext)
 
-    for (const attributeValue of upsert) {
-      const existentValue = attributeValue.id
-        ? attributeValue
-        : dbValues.find((dbVal) => dbVal.value === attributeValue.value);
-      if (existentValue) {
-        toUpdate.push({
-          ...attributeValue,
-          id: existentValue.id!,
-        });
-      } else {
-        //@ts-expect-error
-        toCreate.push(attributeValue);
+    const attributesInput = input.map(toUpdate => {
+      const { possible_values, categories, ...attribute } = toUpdate;
+      return {
+        ...attribute,
+        possible_values: upsertedValues
+          .filter(val => val.attribute_id === attribute.id)
+          .map(upserted => ({ id: upserted.id }))
       }
-    }
+    });
 
-    const toDelete = arrayDifference(dbValues.map(val => val.id), toUpdate.map(valToKeep => valToKeep.id)) ?? []
- 
-    await Promise.all([
-      this.createAttributeValues(toCreate),
-      this.updateAttributeValues(toUpdate),
-      this.deleteAttributeValues(toDelete)
-    ]);
-    return;
+    return this.attributeRepository_.upsertWithReplace(attributesInput, { relations: ['possible_values'] }, sharedContext)
   }
 }
 
