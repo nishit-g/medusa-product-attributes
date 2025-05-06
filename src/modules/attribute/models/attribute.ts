@@ -1,3 +1,4 @@
+import AttributePossibleValue from "./attribute-possible-value"
 import AttributeSet from "./attribute-set"
 import AttributeValue from "./attribute-value"
 import { model } from "@medusajs/framework/utils"
@@ -10,6 +11,7 @@ const Attribute = model.define('attribute', {
     is_filterable: model.boolean().default(true),
     handle: model.text().unique(),
     metadata: model.json().nullable(),
+    possible_values: model.hasMany(() => AttributePossibleValue),
     values: model.hasMany(() => AttributeValue),
     sets: model.manyToMany(() => AttributeSet, { mappedBy: 'attributes' }),
 }).cascades({

@@ -1,4 +1,5 @@
 import { createFindParams, createSelectParams } from '@medusajs/medusa/api/utils/validators'
+
 import { z } from 'zod'
 
 export type AdminCreateAttributeValueType = z.infer<typeof AdminCreateAttributeValue>
@@ -30,7 +31,7 @@ export const AdminCreateAttribute = z.object({
     is_filterable: z.boolean().default(true),
     handle: z.string().optional(),
     metadata: z.record(z.unknown()).nullish(),
-    values: z.array(AdminCreateAttributeValue).optional(),
+    possible_values: z.array(AdminCreateAttributeValue).optional(),
     product_category_ids: z.array(z.string()).optional()
 })
 
@@ -54,5 +55,5 @@ export const AdminUpdateAttribute = z.object({
     categories: z.array(z.object({
         id: z.string()
     })).nullish(),
-    values: z.array(AdminUpdateAttributeValue).optional()
+    possible_values: z.array(AdminUpdateAttributeValue).optional()
 }).strict()

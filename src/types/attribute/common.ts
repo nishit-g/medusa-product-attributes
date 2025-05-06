@@ -45,7 +45,7 @@ export interface UpdateAttributeDTO {
      * The associated attribute values to create or update. If "id" is not provided, it will try to update an existent attribute,
      * matching by "value", if not found, it will create a new one and "value" is required.
      */
-    values?: UpsertAttributeValueDTO[]
+    possible_values?: UpsertAttributeValueDTO[]
 
     /**
      * The associated product categories.
@@ -159,4 +159,15 @@ export interface UpdateAttributeValueDTO {
      * The id of the associated attribute.
      */
     attribute_id?: string
+}
+
+export interface ProductAttributeValueDTO {
+    /**
+     * The value of the attribute value.
+     */
+    value: string;
+     /**
+     * The id of the associated attribute.
+     */
+    attribute_id: string;
 }
