@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 2.0.1 - 2025-05-29
 ### Fixed
 - Updating one product attribute values, deletes other product attribute values
 
