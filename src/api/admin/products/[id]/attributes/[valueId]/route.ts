@@ -1,21 +1,20 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework"
 import { deleteAttributeValueWorkflow } from "../../../../../../workflows/attribute-value/workflow"
 import { ContainerRegistrationKeys, MedusaError, MedusaErrorTypes } from "@medusajs/framework/utils"
+import attributeValueProduct from "../../../../../../links/attribute-value-product"
 
 export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
   const { id: productId, valueId } = req.params
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
   try {
-    // First, verify the attribute value exists and is linked to this product
+    // Verify the attribute value exists and belongs to this product
     const { data: attributeValueLinks } = await query.graph({
-      entity: "attribute_value",
-      fields: ["id", "value"],
+      entity: attributeValueProduct.entryPoint,
+      fields: ['attribute_value_id', 'product_id'],
       filters: {
-        id: valueId,
-        product_link: {
-          product_id: productId
-        }
+        attribute_value_id: valueId,
+        product_id: productId
       }
     })
 
@@ -58,23 +57,26 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
   try {
-    const { data: [attributeValue] } = await query.graph({
-      entity: "attribute_value",
+    const { data: [attributeValueLink] } = await query.graph({
+      entity: attributeValueProduct.entryPoint,
       fields: [
-        "id",
-        "value",
-        "*attribute",
-        "*attribute.possible_values"
+        "attribute_value.id",
+        "attribute_value.value",
+        "attribute_value.attribute.id",
+        "attribute_value.attribute.name",
+        "attribute_value.attribute.description",
+        "attribute_value.attribute.handle",
+        "attribute_value.attribute.is_variant_defining",
+        "attribute_value.attribute.is_filterable",
+        "attribute_value.attribute.possible_values"
       ],
       filters: {
-        id: valueId,
-        product_link: {
-          product_id: productId
-        }
+        attribute_value_id: valueId,
+        product_id: productId
       }
     })
 
-    if (!attributeValue) {
+    if (!attributeValueLink) {
       throw new MedusaError(
         MedusaErrorTypes.NOT_FOUND,
         `Attribute value ${valueId} not found for product ${productId}`
@@ -82,16 +84,16 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     }
 
     const formattedAttributeValue = {
-      id: attributeValue.id,
-      value: attributeValue.value,
+      id: attributeValueLink.attribute_value.id,
+      value: attributeValueLink.attribute_value.value,
       attribute: {
-        id: attributeValue.attribute.id,
-        name: attributeValue.attribute.name,
-        description: attributeValue.attribute.description,
-        handle: attributeValue.attribute.handle,
-        is_variant_defining: attributeValue.attribute.is_variant_defining,
-        is_filterable: attributeValue.attribute.is_filterable,
-        possible_values: attributeValue.attribute.possible_values || []
+        id: attributeValueLink.attribute_value.attribute.id,
+        name: attributeValueLink.attribute_value.attribute.name,
+        description: attributeValueLink.attribute_value.attribute.description,
+        handle: attributeValueLink.attribute_value.attribute.handle,
+        is_variant_defining: attributeValueLink.attribute_value.attribute.is_variant_defining,
+        is_filterable: attributeValueLink.attribute_value.attribute.is_filterable,
+        possible_values: attributeValueLink.attribute_value.attribute.possible_values || []
       }
     }
 

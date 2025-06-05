@@ -6,6 +6,7 @@ import {
 import { StepResponse, createStep } from "@medusajs/framework/workflows-sdk";
 
 import { CreateProductAttributeValueDTO } from "../../../modules/attribute/types";
+import attributeValueProduct from "../../../links/attribute-value-product";
 
 export const validateAttributeValueStepId = "validate-attribute-value";
 
@@ -81,20 +82,22 @@ export const validateAttributeValueStep = createStep(
       }
     }
 
-    // Check for duplicate attribute values on the same product
-    const { data: existingAttributeValues } = await query.graph({
-      entity: "attribute_value",
-      fields: ["id", "value", "attribute_id"],
+    // Check for duplicate attribute values on the same product using the link entity
+    const { data: existingLinks } = await query.graph({
+      entity: attributeValueProduct.entryPoint,
+      fields: [
+        "attribute_value.id",
+        "attribute_value.value",
+        "attribute_value.attribute.id"
+      ],
       filters: {
-        attribute_id: input.attribute_id,
-        value: input.value,
-        product_link: {
-          product_id: input.product_id
-        }
+        product_id: input.product_id,
+        "attribute_value.attribute.id": input.attribute_id,
+        "attribute_value.value": input.value
       }
     });
 
-    if (existingAttributeValues.length > 0) {
+    if (existingLinks.length > 0) {
       throw new MedusaError(
         MedusaErrorTypes.DUPLICATE_ERROR,
         `Attribute value '${input.value}' for attribute '${attribute.name}' already exists for this product`

@@ -1,6 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { createAttributeValueWorkflow } from "../../../../../workflows/attribute-value/workflow"
+import attributeValueProduct from "../../../../../links/attribute-value-product"
 
 interface CreateProductAttributeBody {
   attribute_id: string
@@ -41,33 +42,38 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
   try {
-    // Query attribute values linked to this product
-    const { data: productAttributeValues } = await query.graph({
-      entity: "attribute_value",
+    // Query the link entity to get attribute values for this product
+    const { data: productAttributeLinks } = await query.graph({
+      entity: attributeValueProduct.entryPoint,
       fields: [
-        "id",
-        "value",
-        "*attribute",
-        "*attribute.possible_values"
+        "attribute_value_id",
+        "product_id",
+        "attribute_value.id",
+        "attribute_value.value",
+        "attribute_value.attribute.id",
+        "attribute_value.attribute.name",
+        "attribute_value.attribute.description",
+        "attribute_value.attribute.handle",
+        "attribute_value.attribute.is_variant_defining",
+        "attribute_value.attribute.is_filterable",
+        "attribute_value.attribute.possible_values"
       ],
       filters: {
-        product_link: {
-          product_id: productId
-        }
+        product_id: productId
       }
     })
 
-    const formattedAttributeValues = productAttributeValues.map(attributeValue => ({
-      id: attributeValue.id,
-      value: attributeValue.value,
+    const formattedAttributeValues = productAttributeLinks.map(link => ({
+      id: link.attribute_value.id,
+      value: link.attribute_value.value,
       attribute: {
-        id: attributeValue.attribute.id,
-        name: attributeValue.attribute.name,
-        description: attributeValue.attribute.description,
-        handle: attributeValue.attribute.handle,
-        is_variant_defining: attributeValue.attribute.is_variant_defining,
-        is_filterable: attributeValue.attribute.is_filterable,
-        possible_values: attributeValue.attribute.possible_values || []
+        id: link.attribute_value.attribute.id,
+        name: link.attribute_value.attribute.name,
+        description: link.attribute_value.attribute.description,
+        handle: link.attribute_value.attribute.handle,
+        is_variant_defining: link.attribute_value.attribute.is_variant_defining,
+        is_filterable: link.attribute_value.attribute.is_filterable,
+        possible_values: link.attribute_value.attribute.possible_values || []
       }
     }))
 
