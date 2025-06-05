@@ -83,6 +83,7 @@ export const validateAttributeValueStep = createStep(
     }
 
     // Check for duplicate attribute values on the same product using the link entity
+    // Filter using attribute_value.attribute_id directly to avoid joining the attribute table
     const { data: existingLinks } = await query.graph({
       entity: attributeValueProduct.entryPoint,
       fields: [
