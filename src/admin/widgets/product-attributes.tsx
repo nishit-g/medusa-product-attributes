@@ -1,3 +1,4 @@
+// src/admin/widgets/product-attributes.tsx
 import { defineWidgetConfig } from "@medusajs/admin-sdk"
 import { useState, useEffect } from "react"
 import {
@@ -65,26 +66,31 @@ const ProductAttributesWidget = () => {
     try {
       setLoading(true)
 
-      // Fetch available attributes
+      // Fetch available attributes (admin endpoint)
       const attributesResponse = await fetch('/admin/plugin/attributes', {
         credentials: 'include'
       })
       const attributesData = await attributesResponse.json()
       setAttributes(attributesData.attributes || [])
 
-      // Fetch current product attribute values
+      // Fetch current product attribute values (admin endpoint)
       try {
-        const productResponse = await fetch(`/store/plugin/attributes/products?id=${productId}`, {
+        const productResponse = await fetch(`/admin/products/${productId}/attributes`, {
           credentials: 'include'
         })
-        const productData = await productResponse.json()
 
-        if (productData.products?.[0]?.attribute_values) {
-          setProductAttributes(productData.products[0].attribute_values)
+        if (productResponse.ok) {
+          const productData = await productResponse.json()
+          setProductAttributes(productData.attribute_values || [])
+        } else {
+          // If endpoint doesn't exist or no attributes, that's ok
+          console.log('No existing product attributes found or endpoint not implemented')
+          setProductAttributes([])
         }
       } catch (error) {
         // Product might not have attributes yet, that's ok
         console.log('No existing product attributes found')
+        setProductAttributes([])
       }
 
     } catch (error) {
@@ -114,13 +120,17 @@ const ProductAttributesWidget = () => {
 
   const removeExistingAttribute = async (attributeValueId: string) => {
     try {
-      await fetch(`/admin/products/${productId}/attributes/${attributeValueId}`, {
+      const response = await fetch(`/admin/products/${productId}/attributes/${attributeValueId}`, {
         method: 'DELETE',
         credentials: 'include'
       })
 
-      // Refresh data
-      await fetchData()
+      if (response.ok) {
+        // Refresh data
+        await fetchData()
+      } else {
+        console.error('Failed to remove attribute:', response.statusText)
+      }
     } catch (error) {
       console.error('Error removing attribute:', error)
     }
@@ -136,7 +146,7 @@ const ProductAttributesWidget = () => {
 
       // Save each assignment
       for (const assignment of validAssignments) {
-        await fetch(`/admin/products/${productId}/attributes`, {
+        const response = await fetch(`/admin/products/${productId}/attributes`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -147,6 +157,10 @@ const ProductAttributesWidget = () => {
             value: assignment.value
           })
         })
+
+        if (!response.ok) {
+          console.error('Failed to save attribute:', response.statusText)
+        }
       }
 
       // Clear assignments and refresh
@@ -262,7 +276,21 @@ const ProductAttributesWidget = () => {
                         onValueChange={(value) => updateAssignment(index, 'attribute_id', value)}
                       >
                         <Select.Trigger>
-                          <Select.Value placeholder="Select attribute..." />
+                          <Select.Value placeholder="Select attribute...">
+                            {assignment.attribute_id && (
+                              <div className="flex items-center gap-2">
+                                <span>{getAttributeById(assignment.attribute_id)?.name}</span>
+                                <div className="flex gap-1">
+                                  {getAttributeById(assignment.attribute_id)?.is_variant_defining && (
+                                    <Badge color="purple" size="small">V</Badge>
+                                  )}
+                                  {getAttributeById(assignment.attribute_id)?.is_filterable && (
+                                    <Badge color="blue" size="small">F</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </Select.Value>
                         </Select.Trigger>
                         <Select.Content>
                           {getAvailableAttributes().map((attribute) => (
@@ -292,7 +320,9 @@ const ProductAttributesWidget = () => {
                           onValueChange={(value) => updateAssignment(index, 'value', value)}
                         >
                           <Select.Trigger>
-                            <Select.Value placeholder="Select value..." />
+                            <Select.Value placeholder="Select value...">
+                              {assignment.value && <span>{assignment.value}</span>}
+                            </Select.Value>
                           </Select.Trigger>
                           <Select.Content>
                             {selectedAttribute.possible_values
