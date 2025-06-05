@@ -8,9 +8,10 @@ import {
   Text,
   IconButton,
   Label,
-  Checkbox
+  Checkbox,
+  toast
 } from "@medusajs/ui"
-import {Trash, Plus} from "@medusajs/icons"
+import { Trash, Plus, ExclamationCircle } from "@medusajs/icons"
 
 interface Attribute {
   id: string
@@ -92,6 +93,7 @@ const CategoryAttributesWidget = () => {
 
     } catch (error) {
       console.error('Error fetching attributes:', error)
+      toast.error("Failed to load attributes")
     } finally {
       setLoading(false)
     }
@@ -115,30 +117,34 @@ const CategoryAttributesWidget = () => {
     setSaving(true)
     try {
       // Update each selected attribute to include this category
-      for (const attributeId of selectedAttributeIds) {
-        const attribute = allAttributes.find(attr => attr.id === attributeId)
-        if (!attribute) continue
+      await Promise.all(
+        Array.from(selectedAttributeIds).map(async (attributeId) => {
+          const attribute = allAttributes.find(attr => attr.id === attributeId)
+          if (!attribute) return
 
-        const currentCategoryIds = attribute.product_categories?.map(cat => cat.id) || []
-        const updatedCategoryIds = [...currentCategoryIds, categoryId]
+          const currentCategoryIds = attribute.product_categories?.map(cat => cat.id) || []
+          const updatedCategoryIds = [...currentCategoryIds, categoryId]
 
-        await fetch(`/admin/plugin/attributes/${attributeId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            product_category_ids: updatedCategoryIds
+          await fetch(`/admin/plugin/attributes/${attributeId}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              product_category_ids: updatedCategoryIds
+            })
           })
         })
-      }
+      )
 
       // Clear selections and refresh
       setSelectedAttributeIds(new Set())
       await fetchData()
+      toast.success("Attributes assigned successfully")
     } catch (error) {
       console.error('Error assigning attributes:', error)
+      toast.error("Failed to assign attributes")
     } finally {
       setSaving(false)
     }
@@ -166,8 +172,10 @@ const CategoryAttributesWidget = () => {
       })
 
       await fetchData()
+      toast.success("Attribute removed from category")
     } catch (error) {
       console.error('Error removing attribute from category:', error)
+      toast.error("Failed to remove attribute")
     }
   }
 
@@ -181,7 +189,9 @@ const CategoryAttributesWidget = () => {
   if (loading) {
     return (
       <Container>
-        <Text>Loading category attributes...</Text>
+        <div className="flex items-center justify-center py-8">
+          <Text size="small" className="text-ui-fg-muted">Loading attributes...</Text>
+        </div>
       </Container>
     )
   }
@@ -189,204 +199,215 @@ const CategoryAttributesWidget = () => {
   if (!categoryId) {
     return (
       <Container>
-        <Text className="text-ui-fg-muted">Category ID not found</Text>
+        <div className="flex items-center gap-2 py-6">
+          <ExclamationCircle className="text-ui-fg-muted" />
+          <Text size="small" className="text-ui-fg-muted">
+            Category ID not found
+          </Text>
+        </div>
       </Container>
     )
   }
 
   const availableAttributes = getAvailableAttributes()
+  const hasAnyAttributes = categoryAttributes.length > 0 || globalAttributes.length > 0 || availableAttributes.length > 0
 
   return (
-    <Container>
-      <div className="space-y-6">
+    <Container className="px-0">
+      <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between px-6">
           <div>
-            <Heading level="h2">Category Attributes</Heading>
+            <Heading level="h3" className="text-ui-fg-base">
+              Attributes
+            </Heading>
             <Text size="small" className="text-ui-fg-subtle">
-              Manage attributes specific to this category
+              Manage category-specific and global attributes
             </Text>
           </div>
           {selectedAttributeIds.size > 0 && (
             <Button
+              variant="secondary"
+              size="small"
               onClick={assignAttributesToCategory}
               isLoading={saving}
             >
-              <Plus className="mr-2" />
-              Assign ({selectedAttributeIds.size}) Attributes
+              <Plus className="mr-1.5" />
+              Assign {selectedAttributeIds.size}
             </Button>
           )}
         </div>
 
-        {/* Category-Specific Attributes */}
-        {categoryAttributes.length > 0 && (
-          <div className="space-y-3">
-            <Label>Category-Specific Attributes</Label>
-            <div className="space-y-2">
-              {categoryAttributes.map((attribute) => (
-                <div
-                  key={attribute.id}
-                  className="flex items-center justify-between p-3 border border-ui-border-base rounded-lg bg-ui-bg-subtle"
-                >
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <Text weight="plus" size="small">
-                        {attribute.name}
-                      </Text>
-                      <Text size="small" className="text-ui-fg-subtle">
-                        {attribute.handle}
-                      </Text>
-                      {attribute.description && (
-                        <Text size="small" className="text-ui-fg-muted">
-                          {attribute.description}
-                        </Text>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      {attribute.is_variant_defining && (
-                        <Badge color="purple" size="small">Variant</Badge>
-                      )}
-                      {attribute.is_filterable && (
-                        <Badge color="blue" size="small">Filterable</Badge>
-                      )}
-                      <Badge color="orange" size="small">
-                        {attribute.possible_values?.length || 0} values
-                      </Badge>
-                    </div>
-                  </div>
-                  <IconButton
-                    variant="transparent"
-                    onClick={() => removeAttributeFromCategory(attribute.id)}
-                  >
-                    <Trash />
-                  </IconButton>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Global Attributes (Inherited) */}
-        {globalAttributes.length > 0 && (
-          <div className="space-y-3">
-            <Label>Global Attributes (Available to all categories)</Label>
-            <div className="space-y-2">
-              {globalAttributes.map((attribute) => (
-                <div
-                  key={attribute.id}
-                  className="flex items-center justify-between p-3 border border-ui-border-base rounded-lg bg-ui-bg-field"
-                >
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <Text weight="plus" size="small">
-                        {attribute.name}
-                      </Text>
-                      <Text size="small" className="text-ui-fg-subtle">
-                        {attribute.handle} • Global
-                      </Text>
-                      {attribute.description && (
-                        <Text size="small" className="text-ui-fg-muted">
-                          {attribute.description}
-                        </Text>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      {attribute.is_variant_defining && (
-                        <Badge color="purple" size="small">Variant</Badge>
-                      )}
-                      {attribute.is_filterable && (
-                        <Badge color="blue" size="small">Filterable</Badge>
-                      )}
-                      <Badge color="green" size="small">Global</Badge>
-                      <Badge color="orange" size="small">
-                        {attribute.possible_values?.length || 0} values
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Available Attributes to Assign */}
-        {availableAttributes.length > 0 && (
-          <div className="space-y-3">
-            <Label>Available Attributes to Assign</Label>
-            <div className="space-y-2">
-              {availableAttributes.map((attribute) => (
-                <div
-                  key={attribute.id}
-                  className="flex items-center justify-between p-3 border border-ui-border-base rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={selectedAttributeIds.has(attribute.id)}
-                      onCheckedChange={() => handleAttributeToggle(attribute.id)}
-                    />
-                    <div>
-                      <Text weight="plus" size="small">
-                        {attribute.name}
-                      </Text>
-                      <Text size="small" className="text-ui-fg-subtle">
-                        {attribute.handle}
-                      </Text>
-                      {attribute.description && (
-                        <Text size="small" className="text-ui-fg-muted">
-                          {attribute.description}
-                        </Text>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      {attribute.is_variant_defining && (
-                        <Badge color="purple" size="small">Variant</Badge>
-                      )}
-                      {attribute.is_filterable && (
-                        <Badge color="blue" size="small">Filterable</Badge>
-                      )}
-                      <Badge color="orange" size="small">
-                        {attribute.possible_values?.length || 0} values
-                      </Badge>
-                      {attribute.product_categories?.length ? (
-                        <Badge color="grey" size="small">
-                          {attribute.product_categories.length} categories
-                        </Badge>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Empty States */}
-        {categoryAttributes.length === 0 && globalAttributes.length === 0 && availableAttributes.length === 0 && (
-          <div className="text-center py-8">
-            <Text className="text-ui-fg-muted mb-4">
-              No attributes found. Create some attributes first.
+        {!hasAnyAttributes ? (
+          <div className="flex flex-col items-center justify-center py-12 px-6">
+            <Text className="text-ui-fg-muted mb-2">
+              No attributes found
             </Text>
-            <Button variant="secondary">
-              Create First Attribute
-            </Button>
-          </div>
-        )}
-
-        {categoryAttributes.length === 0 && availableAttributes.length === 0 && globalAttributes.length > 0 && (
-          <div className="text-center py-8">
-            <Text className="text-ui-fg-muted mb-4">
-              This category only has global attributes. Global attributes are automatically available to all products in any category.
+            <Text size="small" className="text-ui-fg-subtle text-center">
+              Create attributes to assign them to this category
             </Text>
           </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Category-Specific Attributes */}
+            {categoryAttributes.length > 0 && (
+              <div className="border-t border-ui-border-base">
+                <div className="px-6 py-3 bg-ui-bg-subtle">
+                  <Label className="text-xs font-medium text-ui-fg-subtle uppercase tracking-wide">
+                    Category Attributes ({categoryAttributes.length})
+                  </Label>
+                </div>
+                <div className="divide-y divide-ui-border-base">
+                  {categoryAttributes.map((attribute) => (
+                    <div
+                      key={attribute.id}
+                      className="flex items-center justify-between px-6 py-3 hover:bg-ui-bg-subtle transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Text size="small" weight="plus" className="truncate">
+                            {attribute.name}
+                          </Text>
+                          <div className="flex gap-1">
+                            {attribute.is_variant_defining && (
+                              <Badge color="purple" size="2xsmall">V</Badge>
+                            )}
+                            {attribute.is_filterable && (
+                              <Badge color="blue" size="2xsmall">F</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Text size="xsmall" className="text-ui-fg-subtle">
+                            {attribute.handle}
+                          </Text>
+                          <Badge color="orange" size="2xsmall">
+                            {attribute.possible_values?.length || 0} values
+                          </Badge>
+                        </div>
+                      </div>
+                      <IconButton
+                        variant="transparent"
+                        size="small"
+                        onClick={() => removeAttributeFromCategory(attribute.id)}
+                        className="text-ui-fg-muted hover:text-ui-fg-subtle"
+                      >
+                        <Trash />
+                      </IconButton>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Global Attributes */}
+            {globalAttributes.length > 0 && (
+              <div className="border-t border-ui-border-base">
+                <div className="px-6 py-3 bg-ui-bg-field">
+                  <Label className="text-xs font-medium text-ui-fg-subtle uppercase tracking-wide">
+                    Global Attributes ({globalAttributes.length})
+                  </Label>
+                </div>
+                <div className="divide-y divide-ui-border-base">
+                  {globalAttributes.map((attribute) => (
+                    <div
+                      key={attribute.id}
+                      className="flex items-center px-6 py-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Text size="small" weight="plus" className="truncate">
+                            {attribute.name}
+                          </Text>
+                          <div className="flex gap-1">
+                            {attribute.is_variant_defining && (
+                              <Badge color="purple" size="2xsmall">V</Badge>
+                            )}
+                            {attribute.is_filterable && (
+                              <Badge color="blue" size="2xsmall">F</Badge>
+                            )}
+                            <Badge color="green" size="2xsmall">Global</Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Text size="xsmall" className="text-ui-fg-subtle">
+                            {attribute.handle}
+                          </Text>
+                          <Badge color="orange" size="2xsmall">
+                            {attribute.possible_values?.length || 0} values
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Available Attributes */}
+            {availableAttributes.length > 0 && (
+              <div className="border-t border-ui-border-base">
+                <div className="px-6 py-3 bg-ui-bg-base">
+                  <Label className="text-xs font-medium text-ui-fg-subtle uppercase tracking-wide">
+                    Available to Assign ({availableAttributes.length})
+                  </Label>
+                </div>
+                <div className="divide-y divide-ui-border-base">
+                  {availableAttributes.map((attribute) => (
+                    <div
+                      key={attribute.id}
+                      className="flex items-center px-6 py-3 hover:bg-ui-bg-subtle transition-colors"
+                    >
+                      <Checkbox
+                        checked={selectedAttributeIds.has(attribute.id)}
+                        onCheckedChange={() => handleAttributeToggle(attribute.id)}
+                        className="mr-3"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Text size="small" weight="plus" className="truncate">
+                            {attribute.name}
+                          </Text>
+                          <div className="flex gap-1">
+                            {attribute.is_variant_defining && (
+                              <Badge color="purple" size="2xsmall">V</Badge>
+                            )}
+                            {attribute.is_filterable && (
+                              <Badge color="blue" size="2xsmall">F</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Text size="xsmall" className="text-ui-fg-subtle">
+                            {attribute.handle}
+                          </Text>
+                          <Badge color="orange" size="2xsmall">
+                            {attribute.possible_values?.length || 0} values
+                          </Badge>
+                          {attribute.product_categories?.length && (
+                            <Badge color="grey" size="2xsmall">
+                              {attribute.product_categories.length} categories
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Helper Text */}
-        <div className="text-xs text-ui-fg-muted border-t pt-4">
-          <Text size="small">
-            <strong>Tip:</strong> Category-specific attributes only appear for products in this category.
-            Global attributes are available to all products regardless of category.
-          </Text>
-        </div>
+        {/* Footer Info */}
+        {hasAnyAttributes && (
+          <div className="border-t border-ui-border-base px-6 py-3">
+            <Text size="xsmall" className="text-ui-fg-muted">
+              Category attributes are specific to products in this category.
+              Global attributes are available to all products.
+            </Text>
+          </div>
+        )}
       </div>
     </Container>
   )
