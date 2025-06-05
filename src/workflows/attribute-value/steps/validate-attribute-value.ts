@@ -6,7 +6,6 @@ import {
 import { StepResponse, createStep } from "@medusajs/framework/workflows-sdk";
 
 import { CreateProductAttributeValueDTO } from "../../../modules/attribute/types";
-import attributeValueProductLink from "../../../links/attribute-value-product";
 
 export const validateAttributeValueStepId = "validate-attribute-value";
 
@@ -15,16 +14,25 @@ export const validateAttributeValueStep = createStep(
   async (input: CreateProductAttributeValueDTO, { container }) => {
     const query = container.resolve(ContainerRegistrationKeys.QUERY);
 
+    // Validate attribute exists and get its constraints
     const {
       data: [attribute],
     } = await query.graph({
       entity: "attribute",
-      fields: ["product_categories.id", "possible_values.value"],
+      fields: ["id", "name", "product_categories.id", "possible_values.value"],
       filters: {
         id: input.attribute_id,
       },
     });
 
+    if (!attribute) {
+      throw new MedusaError(
+        MedusaErrorTypes.NOT_FOUND,
+        `Attribute ${input.attribute_id} not found`
+      );
+    }
+
+    // Check if value is allowed (if possible values are defined)
     const allowedValues = attribute.possible_values?.map(
       (posVal) => posVal.value
     );
@@ -32,61 +40,64 @@ export const validateAttributeValueStep = createStep(
     if (allowedValues?.length && !allowedValues.includes(input.value)) {
       throw new MedusaError(
         MedusaErrorTypes.INVALID_DATA,
-        `Attribute ${input.attribute_id} doesn't define ${input.value} as a possible_value`
+        `Attribute ${attribute.name} doesn't define '${input.value}' as a possible value. Allowed values: ${allowedValues.join(', ')}`
       );
     }
 
-    const attributeCategoryIds = attribute.product_categories.map(
+    const attributeCategoryIds = attribute.product_categories?.map(
       (cat) => cat.id
-    );
+    ) || [];
 
-    // If all attributes are global, we don't enforce for product.categories to include the attribute.product_categories, since there are none
-    if (attributeCategoryIds.length) {
+    // Validate product-category constraints (if attribute has category restrictions)
+    if (attributeCategoryIds.length > 0) {
       const {
         data: [product],
       } = await query.graph({
         entity: "product",
-        fields: ["categories.id"],
+        fields: ["id", "categories.id"],
         filters: {
           id: input.product_id,
         },
       });
 
-      const productCategoryIds = product.categories?.map((cat) => cat.id);
+      if (!product) {
+        throw new MedusaError(
+          MedusaErrorTypes.NOT_FOUND,
+          `Product ${input.product_id} not found`
+        );
+      }
+
+      const productCategoryIds = product.categories?.map((cat) => cat.id) || [];
+
       if (
-        !productCategoryIds?.some((prodCatId) =>
+        !productCategoryIds.some((prodCatId) =>
           attributeCategoryIds.includes(prodCatId)
         )
       ) {
         throw new MedusaError(
           MedusaErrorTypes.INVALID_DATA,
-          `Product ${input.product_id} isn't linked to any category from the requested attributes.`
+          `Product ${input.product_id} must be in one of the categories that this attribute is restricted to.`
         );
       }
     }
 
-    const { data: attributeValuesProduct } = await query.graph({
-      entity: attributeValueProductLink.entryPoint,
-      fields: ["attribute_value.value", "attribute_value.attribute_id"],
+    // Check for duplicate attribute values on the same product
+    const { data: existingAttributeValues } = await query.graph({
+      entity: "attribute_value",
+      fields: ["id", "value", "attribute_id"],
       filters: {
-        product_id: input.product_id,
-      },
+        attribute_id: input.attribute_id,
+        value: input.value,
+        product_link: {
+          product_id: input.product_id
+        }
+      }
     });
 
-    const attributeValues = attributeValuesProduct.map(
-      (element) => element.attribute_value
-    );
-
-    if (
-      attributeValues.some(
-        (value) =>
-          value.attribute_id === input.attribute_id &&
-          value.value === input.value
-      )
-    ) {
+    if (existingAttributeValues.length > 0) {
       throw new MedusaError(
         MedusaErrorTypes.DUPLICATE_ERROR,
-        `Attribute value ${input.value} for attribute ${input.attribute_id} already exists for product ${input.product_id}`
+        `Attribute value '${input.value}' for attribute '${attribute.name}' already exists for this product`
       );
     }
 

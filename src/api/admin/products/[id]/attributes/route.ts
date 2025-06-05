@@ -1,20 +1,16 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { createAttributeValueWorkflow } from "../../../../../workflows/attribute-value/workflow"
-import attributeValueProduct from "../../../../../links/attribute-value-product"
 
 interface CreateProductAttributeBody {
   attribute_id: string
   value: string
-
 }
-
 
 export const POST = async (
   req: MedusaRequest<CreateProductAttributeBody>,
   res: MedusaResponse
 ) => {
-
   const productId = req.params.id
   const { attribute_id, value } = req.validatedBody
 
@@ -32,7 +28,6 @@ export const POST = async (
       message: "Attribute successfully assigned to product"
     })
   } catch (error) {
-
     console.error('Error creating product attribute:', error)
     return res.status(400).json({
       error: "Failed to assign attribute to product",
@@ -43,34 +38,36 @@ export const POST = async (
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const productId = req.params.id
-
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
   try {
+    // Query attribute values linked to this product
     const { data: productAttributeValues } = await query.graph({
-      entity: attributeValueProduct.entryPoint,
+      entity: "attribute_value",
       fields: [
-
-        'attribute_value_id',
-        '*attribute_value',
-        '*attribute_value.attribute',
-        '*attribute_value.attribute.possible_values'
+        "id",
+        "value",
+        "*attribute",
+        "*attribute.possible_values"
       ],
-      filters: { product_id: productId }
+      filters: {
+        product_link: {
+          product_id: productId
+        }
+      }
     })
 
-
-    const formattedAttributeValues = productAttributeValues.map(pav => ({
-      id: pav.attribute_value.id,
-      value: pav.attribute_value.value,
+    const formattedAttributeValues = productAttributeValues.map(attributeValue => ({
+      id: attributeValue.id,
+      value: attributeValue.value,
       attribute: {
-        id: pav.attribute_value.attribute.id,
-        name: pav.attribute_value.attribute.name,
-        description: pav.attribute_value.attribute.description,
-        handle: pav.attribute_value.attribute.handle,
-        is_variant_defining: pav.attribute_value.attribute.is_variant_defining,
-        is_filterable: pav.attribute_value.attribute.is_filterable,
-        possible_values: pav.attribute_value.attribute.possible_values || []
+        id: attributeValue.attribute.id,
+        name: attributeValue.attribute.name,
+        description: attributeValue.attribute.description,
+        handle: attributeValue.attribute.handle,
+        is_variant_defining: attributeValue.attribute.is_variant_defining,
+        is_filterable: attributeValue.attribute.is_filterable,
+        possible_values: attributeValue.attribute.possible_values || []
       }
     }))
 
@@ -87,4 +84,3 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     })
   }
 }
-
