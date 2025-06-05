@@ -61,7 +61,7 @@ const AttributesPage = () => {
     name: '',
     description: '',
     handle: '',
-    is_variant_defining: true,
+    is_variant_defining: false, // Changed default to false
     is_filterable: true,
     possible_values: [{ value: '', rank: 1 }],
     product_category_ids: [] as string[]
@@ -102,7 +102,7 @@ const AttributesPage = () => {
       name: '',
       description: '',
       handle: '',
-      is_variant_defining: true,
+      is_variant_defining: false, // Changed default to false
       is_filterable: true,
       possible_values: [{ value: '', rank: 1 }],
       product_category_ids: []
@@ -380,7 +380,10 @@ const AttributesPage = () => {
                 </Table.Cell>
                 <Table.Cell>
                   <Text size="small">
-                    {new Date(attribute.created_at).toLocaleDateString()}
+                    {attribute.created_at
+                      ? new Date(attribute.created_at).toLocaleDateString()
+                      : "—"
+                    }
                   </Text>
                 </Table.Cell>
                 <Table.Cell>
@@ -418,16 +421,16 @@ const AttributesPage = () => {
 
       {/* Create/Edit Drawer */}
       <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <Drawer.Content>
+        <Drawer.Content className="max-h-[90vh]">
           <Drawer.Header>
             <Drawer.Title>
               {editingAttribute ? 'Edit Attribute' : 'Create Attribute'}
             </Drawer.Title>
           </Drawer.Header>
 
-          <form onSubmit={handleSubmit} className="flex flex-col h-full">
-            <Drawer.Body className="flex-1 overflow-y-auto">
-              <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[calc(90vh-120px)]">
+            <Drawer.Body className="flex-1 overflow-y-auto px-6">
+              <div className="space-y-6 pb-6">
                 {/* Basic Information */}
                 <div className="space-y-4">
                   <Heading level="h3">Basic Information</Heading>
@@ -520,7 +523,7 @@ const AttributesPage = () => {
                   />
 
                   {formData.product_category_ids.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                       {formData.product_category_ids.map(categoryId => {
                         const category = findCategoryById(categories, categoryId)
                         return category ? (
@@ -546,7 +549,7 @@ const AttributesPage = () => {
                     Define predefined values for this attribute. Leave empty to allow any value.
                   </Text>
 
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
                     {formData.possible_values.map((pv, index) => (
                       <div key={index} className="flex items-center gap-2">
                         <Input
@@ -570,8 +573,8 @@ const AttributesPage = () => {
               </div>
             </Drawer.Body>
 
-            <Drawer.Footer>
-              <div className="flex justify-end gap-2">
+            <Drawer.Footer className="flex-shrink-0 border-t border-ui-border-base">
+              <div className="flex justify-end gap-2 p-6">
                 <Button
                   type="button"
                   variant="secondary"

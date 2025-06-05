@@ -55,5 +55,6 @@ export const AdminUpdateAttribute = z.object({
     categories: z.array(z.object({
         id: z.string()
     })).nullish(),
-    possible_values: z.array(AdminUpdateAttributeValue).optional()
+    possible_values: z.array(AdminUpdateAttributeValue).optional(),
+    product_category_ids: z.array(z.string()).optional(),
 }).strict()
