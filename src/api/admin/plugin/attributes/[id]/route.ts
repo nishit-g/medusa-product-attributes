@@ -1,10 +1,11 @@
-import { MedusaRequest, MedusaResponse, refetchEntities } from "@medusajs/framework";
+// src/api/admin/plugin/attributes/[id]/route.ts
+import { MedusaRequest, MedusaResponse, refetchEntity } from "@medusajs/framework";
 import { AdminGetAttributeParamsType, AdminUpdateAttributeType } from "../validators";
 import { ContainerRegistrationKeys, MedusaError, MedusaErrorTypes } from "@medusajs/framework/utils";
 import { updateAttributesWorkflow } from "../../../../../workflows";
-import { UpdateAttributeDTO } from "../../../../../modules/attribute/types/attribute/common";
+import { deleteAttributeWorkflow } from "../../../../../workflows/attribute/workflows/delete-attribute";
 
-export const POST = async (req: MedusaRequest<UpdateAttributeDTO>, res: MedusaResponse) => {
+export const POST = async (req: MedusaRequest<AdminUpdateAttributeType>, res: MedusaResponse) => {
     const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
     const attributeId = req.params.id
@@ -21,6 +22,7 @@ export const POST = async (req: MedusaRequest<UpdateAttributeDTO>, res: MedusaRe
         throw new MedusaError(MedusaErrorTypes.NOT_FOUND, `Attribute with id '${attributeId}' not found`)
     }
 
+    // The workflow now properly handles product_category_ids via links
     await updateAttributesWorkflow(req.scope).run({
         input: { attributes: [{
             ...req.validatedBody,
@@ -28,14 +30,15 @@ export const POST = async (req: MedusaRequest<UpdateAttributeDTO>, res: MedusaRe
         }] }
     })
 
-    const attribute = await refetchEntities(
+    // Refetch the updated attribute with its linked categories
+    const attribute = await refetchEntity(
         'attribute',
         attributeId,
         req.scope,
         req.queryConfig.fields
     )
 
-    return res.status(201).json({ attribute })
+    return res.status(200).json({ attribute })
 }
 
 export const GET = async (req: MedusaRequest<AdminGetAttributeParamsType>, res: MedusaResponse) => {
@@ -56,4 +59,33 @@ export const GET = async (req: MedusaRequest<AdminGetAttributeParamsType>, res: 
     }
 
     return res.status(200).json({ attribute })
+}
+
+export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
+    const attributeId = req.params.id
+    const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+
+    // Check if attribute exists
+    const { data: [existingAttribute] } = await query.graph({
+        entity: 'attribute',
+        fields: ['id'],
+        filters: {
+            id: attributeId
+        }
+    })
+
+    if (!existingAttribute) {
+        throw new MedusaError(MedusaErrorTypes.NOT_FOUND, `Attribute with id '${attributeId}' not found`)
+    }
+
+    // Delete the attribute using workflow
+    await deleteAttributeWorkflow(req.scope).run({
+        input: [attributeId]
+    })
+
+    return res.status(200).json({
+        message: "Attribute deleted successfully",
+        deleted: true,
+        id: attributeId
+    })
 }

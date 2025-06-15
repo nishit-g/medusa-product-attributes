@@ -7,6 +7,8 @@ import { StepResponse, createStep } from "@medusajs/framework/workflows-sdk";
 
 import { CreateProductAttributeValueDTO } from "../../../modules/attribute/types";
 import attributeValueProduct from "../../../links/attribute-value-product";
+import { ATTRIBUTE_MODULE } from "../../../modules/attribute";
+import AttributeModuleService from "../../../modules/attribute/service";
 
 export const validateAttributeValueStepId = "validate-attribute-value";
 
@@ -14,6 +16,7 @@ export const validateAttributeValueStep = createStep(
   validateAttributeValueStepId,
   async (input: CreateProductAttributeValueDTO, { container }) => {
     const query = container.resolve(ContainerRegistrationKeys.QUERY);
+    const attributeModuleService = container.resolve<AttributeModuleService>(ATTRIBUTE_MODULE);
 
     // Validate attribute exists and get its constraints
     const {
@@ -82,26 +85,35 @@ export const validateAttributeValueStep = createStep(
       }
     }
 
-    // Check for duplicate attribute values on the same product using the link entity
-    // Filter using attribute_value.attribute_id directly to avoid joining the attribute table
-    const { data: existingLinks } = await query.graph({
+    // Simplified duplicate check - get all links for this product first
+    const { data: productLinks } = await query.graph({
       entity: attributeValueProduct.entryPoint,
-      fields: [
-        "attribute_value.id",
-        "attribute_value.value",
-      ],
+      fields: ["attribute_value_id"],
       filters: {
         product_id: input.product_id,
-        "attribute_value.attribute_id": input.attribute_id,
-        "attribute_value.value": input.value,
       },
     });
 
-    if (existingLinks.length > 0) {
-      throw new MedusaError(
-        MedusaErrorTypes.DUPLICATE_ERROR,
-        `Attribute value '${input.value}' for attribute '${attribute.name}' already exists for this product`
+    // If product has any attribute value links, check them
+    if (productLinks.length > 0) {
+      const linkedAttributeValueIds = productLinks.map(link => link.attribute_value_id);
+
+      // Get the actual attribute values to check for duplicates
+      const linkedAttributeValues = await attributeModuleService.listAttributeValues({
+        id: linkedAttributeValueIds
+      });
+
+      // Check if any existing values match this attribute + value combo
+      const duplicateValue = linkedAttributeValues.find(av =>
+        av.attribute_id === input.attribute_id && av.value === input.value
       );
+
+      if (duplicateValue) {
+        throw new MedusaError(
+          MedusaErrorTypes.DUPLICATE_ERROR,
+          `Attribute value '${input.value}' for attribute '${attribute.name}' already exists for this product`
+        );
+      }
     }
 
     return new StepResponse();

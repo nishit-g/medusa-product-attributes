@@ -2,6 +2,11 @@ import { MiddlewareRoute, validateAndTransformBody, validateAndTransformQuery } 
 import { AdminCreateAttribute, AdminCreateAttributeValue, AdminGetAttributeParams, AdminGetAttributesParams, AdminGetAttributeValueParams, AdminGetAttributeValuesParams, AdminUpdateAttribute } from "./validators";
 import * as QueryConfig from './query-config'
 import { adminAttributesRoutePath } from "../../../utils/constants";
+import { z } from "zod";
+
+const BulkDeleteAttributesSchema = z.object({
+    ids: z.array(z.string()).min(1, "At least one attribute ID is required")
+});
 
 export const adminAttributeRoutesMiddlewares: MiddlewareRoute[] = [
     {
@@ -44,6 +49,18 @@ export const adminAttributeRoutesMiddlewares: MiddlewareRoute[] = [
                 AdminGetAttributeParams,
                 QueryConfig.retrieveAttributeQueryConfig
             )
+        ]
+    },
+    {
+        method: ['DELETE'],
+        matcher: `${adminAttributesRoutePath}/:id`,
+        middlewares: []
+    },
+    {
+        method: ['POST'],
+        matcher: `${adminAttributesRoutePath}/bulk-delete`,
+        middlewares: [
+            validateAndTransformBody(BulkDeleteAttributesSchema)
         ]
     },
     {

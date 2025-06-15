@@ -1,3 +1,4 @@
+// src/modules/attribute/service.ts
 import {
     arrayDifference,
   InjectManager,
@@ -45,20 +46,13 @@ class AttributeModuleService extends MedusaService({
   }
 
   /**
-   *
-   * @param input
-   * @param sharedContext
-   *
-   * Useful to update attribute, allowing to upsert possible_values in the same operation. If "id"
-   * is not provided for "possible_values" entries, it will lookup the DB by attributePossibleValue.value,
-   * to update or create accordingly.
-   *
-   * Assumes caller will eventually refetch entities, for now, to reduce complexity of this
-   * method and concentrate on upserting like ProductOption - ProductOptionValue from Medusa
+   * Update attribute with upsert or replace possible values
+   * This method handles only the core attribute data and possible values
+   * Category relationships are handled separately via links
    */
   @InjectManager()
   async updateAttributeWithUpsertOrReplacePossibleValues(
-    input: UpdateAttributeDTO | UpdateAttributeDTO[],
+    input: Omit<UpdateAttributeDTO, 'product_category_ids'> | Omit<UpdateAttributeDTO, 'product_category_ids'>[],
     @MedusaContext() sharedContext?: Context<EntityManager>
   ) {
     const normalizedInput = Array.isArray(input) ? input : [input];
@@ -71,31 +65,44 @@ class AttributeModuleService extends MedusaService({
 
   @InjectTransactionManager()
   protected async updateAttributeWithUpsertOrReplacePossibleValues_(
-    input: UpdateAttributeDTO[],
+    input: Omit<UpdateAttributeDTO, 'product_category_ids'>[],
     @MedusaContext() sharedContext?: Context<EntityManager>
   ) {
-    // When debugging this, it only seems to have the id proprty returned
-    // so i refetch the entities
-    const upsertedValues = await this.attributePossibleValueRepository_.upsert(
-      input.flatMap((element) => element.possible_values),
-      sharedContext
-    );
+    // Handle possible values if they exist
+    const possibleValuesInput = input
+      .filter(element => element.possible_values && element.possible_values.length > 0)
+      .flatMap(element => element.possible_values!);
 
-    // const upsertedValues = await this.listAttributePossibleValues({
-    //   id: upsertedValuesWithoutFields.map(val => val.id)
-    // }, undefined, sharedContext)
+    let upsertedValues: any[] = [];
+    if (possibleValuesInput.length > 0) {
+      // Upsert possible values
+      upsertedValues = await this.attributePossibleValueRepository_.upsert(
+        possibleValuesInput,
+        sharedContext
+      );
+    }
 
+    // Prepare attributes input without possible_values for direct update
     const attributesInput = input.map(toUpdate => {
-      const { possible_values, categories, ...attribute } = toUpdate;
-      return {
-        ...attribute,
-        possible_values: upsertedValues
+      const { possible_values, ...attribute } = toUpdate;
+
+      // Only add possible_values if they were provided and upserted
+      const attributeData: any = { ...attribute };
+
+      if (possible_values && possible_values.length > 0) {
+        attributeData.possible_values = upsertedValues
           .filter(val => val.attribute_id === attribute.id)
-          .map(upserted => ({ id: upserted.id }))
+          .map(upserted => ({ id: upserted.id }));
       }
+
+      return attributeData;
     });
 
-    return this.attributeRepository_.upsertWithReplace(attributesInput, { relations: ['possible_values'] }, sharedContext)
+    return this.attributeRepository_.upsertWithReplace(
+      attributesInput,
+      { relations: ['possible_values'] },
+      sharedContext
+    );
   }
 }
 

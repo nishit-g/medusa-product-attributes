@@ -1,5 +1,6 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { useState, useEffect } from "react"
+import { useQuery, useMutation } from "@tanstack/react-query"
 import {
   Container,
   Heading,
@@ -15,26 +16,11 @@ import {
   Text,
   usePrompt,
   Checkbox,
-  toast,
-  StatusBadge,
-  Tooltip,
-  DropdownMenu,
-  Copy
+  toast
 } from "@medusajs/ui"
-import {
-  PencilSquare,
-  Trash,
-  Plus,
-  Tag,
-  EllipsisHorizontal,
-  Eye,
-  EyeSlash,
-  Adjustments,
-  XMark,
-  MagnifyingGlass,
-  ArrowPath
-} from "@medusajs/icons"
+import { PencilSquare, Trash, Plus, Tag } from "@medusajs/icons"
 import { CategoryCombobox } from "../../components/category-combobox"
+import { sdk } from "../../lib/sdk" // Import your configured SDK
 
 interface Attribute {
   id: string
@@ -63,22 +49,10 @@ interface Category {
   category_children?: Category[]
 }
 
-type FilterState = {
-  search: string
-  is_variant_defining?: boolean
-  is_filterable?: boolean
-  has_categories?: boolean
-}
-
 const AttributesPage = () => {
-  const [attributes, setAttributes] = useState<Attribute[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editingAttribute, setEditingAttribute] = useState<Attribute | null>(null)
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
-  const [filters, setFilters] = useState<FilterState>({ search: "" })
-  const [showFilters, setShowFilters] = useState(false)
 
   const prompt = usePrompt()
 
@@ -87,43 +61,115 @@ const AttributesPage = () => {
     name: '',
     description: '',
     handle: '',
-    is_variant_defining: false,
     is_filterable: true,
     possible_values: [{ value: '', rank: 1 }],
     product_category_ids: [] as string[]
   })
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-
-      // Fetch attributes
-      const attributesResponse = await fetch('/admin/plugin/attributes', {
-        credentials: 'include'
-      })
-      const attributesData = await attributesResponse.json()
-
-      // Fetch categories with nested structure for assignment
-      const categoriesResponse = await fetch('/admin/product-categories?include_descendants_tree=true', {
-        credentials: 'include'
-      })
-      const categoriesData = await categoriesResponse.json()
-
-      setAttributes(attributesData.attributes || [])
-      setCategories(categoriesData.product_categories || [])
-    } catch (error) {
-      console.error('Error fetching data:', error)
-      toast.error("Error", {
-        description: "Failed to fetch attributes data"
-      })
-    } finally {
-      setLoading(false)
+  // Query for attributes using TanStack Query + SDK
+  const {
+    data: attributesData,
+    isLoading: attributesLoading,
+    refetch: refetchAttributes
+  } = useQuery({
+    queryKey: ["admin-attributes"],
+    queryFn: async () => {
+      return await sdk.client.fetch(`/admin/plugin/attributes`)
     }
-  }
+  })
+
+  // Query for categories
+  const {
+    data: categoriesData,
+    isLoading: categoriesLoading
+  } = useQuery({
+    queryKey: ["admin-categories"],
+    queryFn: async () => {
+      return await sdk.client.fetch(`/admin/product-categories`, {
+        query: {
+          include_descendants_tree: true
+        }
+      })
+    }
+  })
+
+  // Create mutation
+  const createAttributeMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      return await sdk.client.fetch(`/admin/plugin/attributes`, {
+        method: "POST",
+        body: payload
+      })
+    },
+    onSuccess: () => {
+      toast.success("Success", { description: "Attribute created successfully" })
+      setIsDrawerOpen(false)
+      refetchAttributes()
+    },
+    onError: (error) => {
+      console.error('Error creating attribute:', error)
+      toast.error("Error", { description: "Failed to create attribute" })
+    }
+  })
+
+  // Update mutation
+  const updateAttributeMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string, payload: any }) => {
+      return await sdk.client.fetch(`/admin/plugin/attributes/${id}`, {
+        method: "POST",
+        body: payload
+      })
+    },
+    onSuccess: () => {
+      toast.success("Success", { description: "Attribute updated successfully" })
+      setIsDrawerOpen(false)
+      refetchAttributes()
+    },
+    onError: (error) => {
+      console.error('Error updating attribute:', error)
+      toast.error("Error", { description: "Failed to update attribute" })
+    }
+  })
+
+  // Delete mutation
+  const deleteAttributeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await sdk.client.fetch(`/admin/plugin/attributes/${id}`, {
+        method: "DELETE"
+      })
+    },
+    onSuccess: () => {
+      toast.success("Success", { description: "Attribute deleted successfully" })
+      refetchAttributes()
+    },
+    onError: (error) => {
+      console.error('Error deleting attribute:', error)
+      toast.error("Error", { description: "Failed to delete attribute" })
+    }
+  })
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return await sdk.client.fetch(`/admin/plugin/attributes/bulk-delete`, {
+        method: "POST",
+        body: { ids }
+      })
+    },
+    onSuccess: (_, ids) => {
+      toast.success("Success", { description: `${ids.length} attributes deleted successfully` })
+      setSelectedRows(new Set())
+      refetchAttributes()
+    },
+    onError: (error) => {
+      console.error('Error deleting attributes:', error)
+      toast.error("Error", { description: "Failed to delete attributes" })
+    }
+  })
+
+  const attributes = attributesData?.attributes || []
+  const categories = categoriesData?.product_categories || []
+  const loading = attributesLoading || categoriesLoading
 
   const handleCreate = () => {
     setEditingAttribute(null)
@@ -131,7 +177,6 @@ const AttributesPage = () => {
       name: '',
       description: '',
       handle: '',
-      is_variant_defining: false,
       is_filterable: true,
       possible_values: [{ value: '', rank: 1 }],
       product_category_ids: []
@@ -145,7 +190,6 @@ const AttributesPage = () => {
       name: attribute.name,
       description: attribute.description || '',
       handle: attribute.handle,
-      is_variant_defining: attribute.is_variant_defining,
       is_filterable: attribute.is_filterable,
       possible_values: attribute.possible_values?.length
         ? attribute.possible_values
@@ -158,50 +202,19 @@ const AttributesPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    try {
-      const payload = {
-        name: formData.name,
-        description: formData.description || undefined,
-        handle: formData.handle || undefined,
-        is_variant_defining: formData.is_variant_defining,
-        is_filterable: formData.is_filterable,
-        possible_values: formData.possible_values.filter(pv => pv.value.trim()),
-        product_category_ids: formData.product_category_ids.length > 0 ? formData.product_category_ids : undefined
-      }
+    const payload = {
+      name: formData.name,
+      description: formData.description || undefined,
+      handle: formData.handle || undefined,
+      is_filterable: formData.is_filterable,
+      possible_values: formData.possible_values.filter(pv => pv.value.trim()),
+      product_category_ids: formData.product_category_ids.length > 0 ? formData.product_category_ids : undefined
+    }
 
-      if (editingAttribute) {
-        await fetch(`/admin/plugin/attributes/${editingAttribute.id}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify(payload)
-        })
-        toast.success("Success", {
-          description: "Attribute updated successfully"
-        })
-      } else {
-        await fetch('/admin/plugin/attributes', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify(payload)
-        })
-        toast.success("Success", {
-          description: "Attribute created successfully"
-        })
-      }
-
-      setIsDrawerOpen(false)
-      await fetchData()
-    } catch (error) {
-      console.error('Error saving attribute:', error)
-      toast.error("Error", {
-        description: "Failed to save attribute"
-      })
+    if (editingAttribute) {
+      updateAttributeMutation.mutate({ id: editingAttribute.id, payload })
+    } else {
+      createAttributeMutation.mutate(payload)
     }
   }
 
@@ -214,21 +227,7 @@ const AttributesPage = () => {
     })
 
     if (confirmed) {
-      try {
-        await fetch(`/admin/plugin/attributes/${id}`, {
-          method: 'DELETE',
-          credentials: 'include'
-        })
-        toast.success("Success", {
-          description: "Attribute deleted successfully"
-        })
-        await fetchData()
-      } catch (error) {
-        console.error('Error deleting attribute:', error)
-        toast.error("Error", {
-          description: "Failed to delete attribute"
-        })
-      }
+      deleteAttributeMutation.mutate(id)
     }
   }
 
@@ -243,26 +242,7 @@ const AttributesPage = () => {
     })
 
     if (confirmed) {
-      try {
-        await Promise.all(
-          Array.from(selectedRows).map(id =>
-            fetch(`/admin/plugin/attributes/${id}`, {
-              method: 'DELETE',
-              credentials: 'include'
-            })
-          )
-        )
-        setSelectedRows(new Set())
-        toast.success("Success", {
-          description: `${selectedRows.size} attributes deleted successfully`
-        })
-        await fetchData()
-      } catch (error) {
-        console.error('Error deleting attributes:', error)
-        toast.error("Error", {
-          description: "Failed to delete attributes"
-        })
-      }
+      bulkDeleteMutation.mutate(Array.from(selectedRows))
     }
   }
 
@@ -305,15 +285,11 @@ const AttributesPage = () => {
   }
 
   const toggleAllRows = () => {
-    if (selectedRows.size === filteredAttributes.length && filteredAttributes.length > 0) {
+    if (selectedRows.size === attributes.length) {
       setSelectedRows(new Set())
     } else {
-      setSelectedRows(new Set(filteredAttributes.map(attr => attr.id)))
+      setSelectedRows(new Set(attributes.map(attr => attr.id)))
     }
-  }
-
-  const clearFilters = () => {
-    setFilters({ search: "" })
   }
 
   // Helper function to find category by ID in nested structure
@@ -330,37 +306,13 @@ const AttributesPage = () => {
     return null
   }
 
-  // Filter attributes based on current filters
-  const filteredAttributes = attributes.filter(attr => {
-    if (filters.search && !attr.name.toLowerCase().includes(filters.search.toLowerCase()) &&
-        !attr.handle.toLowerCase().includes(filters.search.toLowerCase())) {
-      return false
-    }
-    if (filters.is_variant_defining !== undefined && attr.is_variant_defining !== filters.is_variant_defining) {
-      return false
-    }
-    if (filters.is_filterable !== undefined && attr.is_filterable !== filters.is_filterable) {
-      return false
-    }
-    if (filters.has_categories !== undefined) {
-      const hasCategories = (attr.product_categories?.length || 0) > 0
-      if (hasCategories !== filters.has_categories) {
-        return false
-      }
-    }
-    return true
-  })
-
-  const activeFiltersCount = Object.values(filters).filter(v => v !== undefined && v !== "").length
+  const isSubmitting = createAttributeMutation.isPending || updateAttributeMutation.isPending
 
   if (loading) {
     return (
       <Container>
         <div className="flex items-center justify-center h-64">
-          <div className="flex items-center gap-2">
-            <ArrowPath className="animate-spin" />
-            <Text>Loading attributes...</Text>
-          </div>
+          <Text>Loading attributes...</Text>
         </div>
       </Container>
     )
@@ -369,18 +321,20 @@ const AttributesPage = () => {
   return (
     <Container>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <Heading level="h1" className="text-ui-fg-base">
-            Attributes
-          </Heading>
+          <Heading level="h1">Attributes</Heading>
           <Text className="text-ui-fg-subtle">
             Manage product attributes and their possible values
           </Text>
         </div>
         <div className="flex items-center gap-2">
           {selectedRows.size > 0 && (
-            <Button variant="danger" onClick={handleBulkDelete}>
+            <Button
+              variant="danger"
+              onClick={handleBulkDelete}
+              isLoading={bulkDeleteMutation.isPending}
+            >
               <Trash className="mr-2" />
               Delete ({selectedRows.size})
             </Button>
@@ -392,131 +346,6 @@ const AttributesPage = () => {
         </div>
       </div>
 
-      {/* Filters Bar */}
-      <div className="mb-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-md">
-            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-ui-fg-muted" />
-            <Input
-              placeholder="Search attributes..."
-              value={filters.search}
-              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className="pl-10"
-            />
-          </div>
-          <Button
-            variant="secondary"
-            onClick={() => setShowFilters(!showFilters)}
-            className="relative"
-          >
-            <Adjustments className="mr-2" />
-            Filters
-            {activeFiltersCount > 0 && (
-              <Badge className="ml-2 bg-ui-tag-blue-bg text-ui-tag-blue-text">
-                {activeFiltersCount}
-              </Badge>
-            )}
-          </Button>
-          {activeFiltersCount > 0 && (
-            <Button variant="transparent" onClick={clearFilters} size="small">
-              <XMark className="mr-1" />
-              Clear
-            </Button>
-          )}
-        </div>
-
-        {showFilters && (
-          <div className="bg-ui-bg-subtle border border-ui-border-base rounded-lg p-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2">
-                    <Checkbox
-                      checked={filters.is_variant_defining === true}
-                      onCheckedChange={(checked) =>
-                        setFilters(prev => ({
-                          ...prev,
-                          is_variant_defining: checked ? true : undefined
-                        }))
-                      }
-                    />
-                    <Text size="small">Variant Defining</Text>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <Checkbox
-                      checked={filters.is_filterable === true}
-                      onCheckedChange={(checked) =>
-                        setFilters(prev => ({
-                          ...prev,
-                          is_filterable: checked ? true : undefined
-                        }))
-                      }
-                    />
-                    <Text size="small">Filterable</Text>
-                  </label>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Scope</Label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2">
-                    <Checkbox
-                      checked={filters.has_categories === true}
-                      onCheckedChange={(checked) =>
-                        setFilters(prev => ({
-                          ...prev,
-                          has_categories: checked ? true : undefined
-                        }))
-                      }
-                    />
-                    <Text size="small">Category Specific</Text>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <Checkbox
-                      checked={filters.has_categories === false}
-                      onCheckedChange={(checked) =>
-                        setFilters(prev => ({
-                          ...prev,
-                          has_categories: checked ? false : undefined
-                        }))
-                      }
-                    />
-                    <Text size="small">Global</Text>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-ui-bg-subtle border border-ui-border-base rounded-lg p-4">
-          <Text size="small" className="text-ui-fg-muted">Total Attributes</Text>
-          <Text size="large" weight="plus">{attributes.length}</Text>
-        </div>
-        <div className="bg-ui-bg-subtle border border-ui-border-base rounded-lg p-4">
-          <Text size="small" className="text-ui-fg-muted">Variant Defining</Text>
-          <Text size="large" weight="plus">
-            {attributes.filter(a => a.is_variant_defining).length}
-          </Text>
-        </div>
-        <div className="bg-ui-bg-subtle border border-ui-border-base rounded-lg p-4">
-          <Text size="small" className="text-ui-fg-muted">Filterable</Text>
-          <Text size="large" weight="plus">
-            {attributes.filter(a => a.is_filterable).length}
-          </Text>
-        </div>
-        <div className="bg-ui-bg-subtle border border-ui-border-base rounded-lg p-4">
-          <Text size="small" className="text-ui-fg-muted">Global</Text>
-          <Text size="large" weight="plus">
-            {attributes.filter(a => !a.product_categories?.length).length}
-          </Text>
-        </div>
-      </div>
-
       {/* Table */}
       <div className="bg-ui-bg-base border border-ui-border-base rounded-lg overflow-hidden">
         <Table>
@@ -524,21 +353,20 @@ const AttributesPage = () => {
             <Table.Row>
               <Table.HeaderCell className="w-12">
                 <Checkbox
-                  checked={selectedRows.size === filteredAttributes.length && filteredAttributes.length > 0}
+                  checked={selectedRows.size === attributes.length && attributes.length > 0}
                   onCheckedChange={toggleAllRows}
                 />
               </Table.HeaderCell>
-              <Table.HeaderCell>Attribute</Table.HeaderCell>
-              <Table.HeaderCell>Type</Table.HeaderCell>
-              <Table.HeaderCell>Scope</Table.HeaderCell>
+              <Table.HeaderCell>Name</Table.HeaderCell>
+              <Table.HeaderCell>Properties</Table.HeaderCell>
               <Table.HeaderCell>Values</Table.HeaderCell>
               <Table.HeaderCell>Categories</Table.HeaderCell>
-              <Table.HeaderCell>Last Updated</Table.HeaderCell>
+              <Table.HeaderCell>Created</Table.HeaderCell>
               <Table.HeaderCell className="w-20">Actions</Table.HeaderCell>
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {filteredAttributes.map((attribute) => (
+            {attributes.map((attribute) => (
               <Table.Row key={attribute.id}>
                 <Table.Cell>
                   <Checkbox
@@ -547,149 +375,81 @@ const AttributesPage = () => {
                   />
                 </Table.Cell>
                 <Table.Cell>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Text weight="plus" size="small">
-                        {attribute.name}
-                      </Text>
-                      <Copy content={attribute.id} className="text-ui-fg-muted" />
-                    </div>
-                    <Text size="small" className="text-ui-fg-muted font-mono">
+                  <div>
+                    <Text weight="plus" className="mb-1">
+                      {attribute.name}
+                    </Text>
+                    <Text size="small" className="text-ui-fg-subtle">
                       {attribute.handle}
                     </Text>
                     {attribute.description && (
-                      <Text size="small" className="text-ui-fg-subtle">
+                      <Text size="small" className="text-ui-fg-muted mt-1">
                         {attribute.description}
                       </Text>
                     )}
                   </div>
                 </Table.Cell>
                 <Table.Cell>
-                  <div className="flex flex-wrap gap-1">
-                    {attribute.is_variant_defining && (
-                      <StatusBadge color="purple">
-                        Variant Defining
-                      </StatusBadge>
-                    )}
+                  <div className="flex gap-1">
                     {attribute.is_filterable && (
-                      <StatusBadge color="blue">
-                        Filterable
-                      </StatusBadge>
-                    )}
-                    {!attribute.is_variant_defining && !attribute.is_filterable && (
-                      <StatusBadge color="grey">
-                        Info Only
-                      </StatusBadge>
+                      <Badge color="blue">Filterable</Badge>
                     )}
                   </div>
                 </Table.Cell>
                 <Table.Cell>
-                  {attribute.product_categories?.length ? (
-                    <StatusBadge color="orange">
-                      Category Specific
-                    </StatusBadge>
-                  ) : (
-                    <StatusBadge color="green">
-                      Global
-                    </StatusBadge>
-                  )}
+                  <Text size="small">
+                    {attribute.possible_values?.length || 0} possible values
+                  </Text>
                 </Table.Cell>
                 <Table.Cell>
-                  <Tooltip content={`${attribute.possible_values?.length || 0} possible values defined`}>
-                    <div className="flex items-center gap-1">
-                      <Badge color="purple">
-                        {attribute.possible_values?.length || 0}
-                      </Badge>
-                      {attribute.possible_values?.length ? (
-                        <Eye className="text-ui-fg-muted" />
-                      ) : (
-                        <EyeSlash className="text-ui-fg-muted" />
-                      )}
-                    </div>
-                  </Tooltip>
+                  <Text size="small">
+                    {attribute.product_categories?.length
+                      ? `${attribute.product_categories.length} categories`
+                      : "Global"
+                    }
+                  </Text>
                 </Table.Cell>
                 <Table.Cell>
-                  {attribute.product_categories?.length ? (
-                    <Tooltip
-                      content={attribute.product_categories.map(c => c.name).join(", ")}
-                    >
-                      <Badge color="orange">
-                        {attribute.product_categories.length} categories
-                      </Badge>
-                    </Tooltip>
-                  ) : (
-                    <Text size="small" className="text-ui-fg-muted">
-                      All categories
-                    </Text>
-                  )}
-                </Table.Cell>
-                <Table.Cell>
-                  <Text size="small" className="text-ui-fg-muted">
-                    {attribute.updated_at
-                      ? new Date(attribute.updated_at).toLocaleDateString()
+                  <Text size="small">
+                    {attribute.created_at
+                      ? new Date(attribute.created_at).toLocaleDateString()
                       : "—"
                     }
                   </Text>
                 </Table.Cell>
                 <Table.Cell>
-                  <DropdownMenu>
-                    <DropdownMenu.Trigger asChild>
-                      <IconButton variant="transparent">
-                        <EllipsisHorizontal />
-                      </IconButton>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Content align="end">
-                      <DropdownMenu.Item onClick={() => handleEdit(attribute)}>
-                        <PencilSquare className="mr-2" />
-                        Edit
-                      </DropdownMenu.Item>
-                      <DropdownMenu.Separator />
-                      <DropdownMenu.Item
-                        onClick={() => handleDelete(attribute.id)}
-                        className="text-ui-fg-error"
-                      >
-                        <Trash className="mr-2" />
-                        Delete
-                      </DropdownMenu.Item>
-                    </DropdownMenu.Content>
-                  </DropdownMenu>
+                  <div className="flex items-center gap-1">
+                    <IconButton
+                      variant="transparent"
+                      onClick={() => handleEdit(attribute)}
+                    >
+                      <PencilSquare />
+                    </IconButton>
+                    <IconButton
+                      variant="transparent"
+                      onClick={() => handleDelete(attribute.id)}
+                      isLoading={deleteAttributeMutation.isPending}
+                    >
+                      <Trash />
+                    </IconButton>
+                  </div>
                 </Table.Cell>
               </Table.Row>
             ))}
           </Table.Body>
         </Table>
 
-        {filteredAttributes.length === 0 && (
+        {attributes.length === 0 && (
           <div className="flex items-center justify-center h-32">
             <div className="text-center">
-              {attributes.length === 0 ? (
-                <>
-                  <Text className="text-ui-fg-muted mb-2">No attributes found</Text>
-                  <Button variant="secondary" onClick={handleCreate}>
-                    Create your first attribute
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Text className="text-ui-fg-muted mb-2">No attributes match your filters</Text>
-                  <Button variant="secondary" onClick={clearFilters}>
-                    Clear filters
-                  </Button>
-                </>
-              )}
+              <Text className="text-ui-fg-muted mb-2">No attributes found</Text>
+              <Button variant="secondary" onClick={handleCreate}>
+                Create your first attribute
+              </Button>
             </div>
           </div>
         )}
       </div>
-
-      {/* Results count */}
-      {filteredAttributes.length > 0 && (
-        <div className="mt-4">
-          <Text size="small" className="text-ui-fg-muted">
-            Showing {filteredAttributes.length} of {attributes.length} attributes
-          </Text>
-        </div>
-      )}
 
       {/* Create/Edit Drawer */}
       <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
@@ -698,51 +458,38 @@ const AttributesPage = () => {
             <Drawer.Title>
               {editingAttribute ? 'Edit Attribute' : 'Create Attribute'}
             </Drawer.Title>
-            <Drawer.Description>
-              {editingAttribute
-                ? 'Update the attribute details and configuration'
-                : 'Create a new product attribute with possible values'
-              }
-            </Drawer.Description>
           </Drawer.Header>
 
           <form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[calc(90vh-120px)]">
             <Drawer.Body className="flex-1 overflow-y-auto px-6">
-              <div className="space-y-8 pb-6">
+              <div className="space-y-6 pb-6">
                 {/* Basic Information */}
                 <div className="space-y-4">
-                  <div className="border-b border-ui-border-base pb-4">
-                    <Heading level="h3">Basic Information</Heading>
-                    <Text size="small" className="text-ui-fg-subtle">
-                      Configure the core attribute properties
-                    </Text>
+                  <Heading level="h3">Basic Information</Heading>
+
+                  <div>
+                    <Label htmlFor="name" className="mb-2">Name *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        name: e.target.value,
+                        handle: prev.handle || e.target.value.toLowerCase().replace(/\s+/g, '-')
+                      }))}
+                      placeholder="e.g., Color, Size, Material"
+                      required
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="name" className="mb-2">Name *</Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          name: e.target.value,
-                          handle: prev.handle || e.target.value.toLowerCase().replace(/\s+/g, '-')
-                        }))}
-                        placeholder="e.g., Color, Size, Material"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="handle" className="mb-2">Handle</Label>
-                      <Input
-                        id="handle"
-                        value={formData.handle}
-                        onChange={(e) => setFormData(prev => ({ ...prev, handle: e.target.value }))}
-                        placeholder="color, size, material"
-                      />
-                    </div>
+                  <div>
+                    <Label htmlFor="handle" className="mb-2">Handle</Label>
+                    <Input
+                      id="handle"
+                      value={formData.handle}
+                      onChange={(e) => setFormData(prev => ({ ...prev, handle: e.target.value }))}
+                      placeholder="color, size, material"
+                    />
                   </div>
 
                   <div>
@@ -752,166 +499,92 @@ const AttributesPage = () => {
                       value={formData.description}
                       onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                       placeholder="Optional description for this attribute"
-                      rows={3}
                     />
                   </div>
                 </div>
 
-                {/* Configuration */}
+                {/* Properties */}
                 <div className="space-y-4">
-                  <div className="border-b border-ui-border-base pb-4">
-                    <Heading level="h3">Configuration</Heading>
-                    <Text size="small" className="text-ui-fg-subtle">
-                      Define how this attribute behaves in your store
-                    </Text>
-                  </div>
+                  <Heading level="h3">Properties</Heading>
 
-                  <div className="bg-ui-bg-subtle border border-ui-border-base rounded-lg p-4 space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <Label>Variant Defining</Label>
-                        <Text size="small" className="text-ui-fg-subtle">
-                          Creates product variants when different values are selected
-                        </Text>
-                        <Text size="small" className="text-ui-fg-muted">
-                          Example: Size and Color attributes create variants like "Red-Small", "Blue-Large"
-                        </Text>
-                      </div>
-                      <Switch
-                        checked={formData.is_variant_defining}
-                        onCheckedChange={(checked) =>
-                          setFormData(prev => ({ ...prev, is_variant_defining: checked }))
-                        }
-                      />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Filterable</Label>
+                      <Text size="small" className="text-ui-fg-subtle">
+                        Available for filtering products in the storefront
+                      </Text>
                     </div>
-
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <Label>Filterable</Label>
-                        <Text size="small" className="text-ui-fg-subtle">
-                          Available for filtering products in the storefront
-                        </Text>
-                        <Text size="small" className="text-ui-fg-muted">
-                          Customers can filter by this attribute in product listings
-                        </Text>
-                      </div>
-                      <Switch
-                        checked={formData.is_filterable}
-                        onCheckedChange={(checked) =>
-                          setFormData(prev => ({ ...prev, is_filterable: checked }))
-                        }
-                      />
-                    </div>
+                    <Switch
+                      checked={formData.is_filterable}
+                      onCheckedChange={(checked) =>
+                        setFormData(prev => ({ ...prev, is_filterable: checked }))
+                      }
+                    />
                   </div>
                 </div>
 
                 {/* Categories */}
                 <div className="space-y-4">
-                  <div className="border-b border-ui-border-base pb-4">
-                    <Heading level="h3">Scope</Heading>
-                    <Text size="small" className="text-ui-fg-subtle">
-                      Control which products can use this attribute
-                    </Text>
-                  </div>
+                  <Heading level="h3">Categories</Heading>
+                  <Text size="small" className="text-ui-fg-subtle">
+                    Leave empty to make this attribute global (available for all products)
+                  </Text>
 
-                  <div className="space-y-3">
-                    <div className="bg-ui-bg-field border border-ui-border-base rounded-lg p-3">
-                      <Text size="small" className="text-ui-fg-base mb-2">
-                        {formData.product_category_ids.length === 0
-                          ? "Global Attribute"
-                          : "Category Specific Attribute"
-                        }
-                      </Text>
-                      <Text size="small" className="text-ui-fg-muted">
-                        {formData.product_category_ids.length === 0
-                          ? "Available for all products regardless of category"
-                          : `Available only for products in selected categories`
-                        }
-                      </Text>
+                  <CategoryCombobox
+                    value={formData.product_category_ids}
+                    onChange={(values) =>
+                      setFormData(prev => ({ ...prev, product_category_ids: values }))
+                    }
+                    categories={categories}
+                    placeholder="Search and select categories..."
+                  />
+
+                  {formData.product_category_ids.length > 0 && (
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                      {formData.product_category_ids.map(categoryId => {
+                        const category = findCategoryById(categories, categoryId)
+                        return category ? (
+                          <Badge key={categoryId} color="orange">
+                            {category.name}
+                          </Badge>
+                        ) : null
+                      })}
                     </div>
-
-                    <CategoryCombobox
-                      value={formData.product_category_ids}
-                      onChange={(values) =>
-                        setFormData(prev => ({ ...prev, product_category_ids: values }))
-                      }
-                      categories={categories}
-                      placeholder="Search and select categories (leave empty for global)..."
-                    />
-
-                    {formData.product_category_ids.length > 0 && (
-                      <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                        {formData.product_category_ids.map(categoryId => {
-                          const category = findCategoryById(categories, categoryId)
-                          return category ? (
-                            <Badge key={categoryId} color="orange">
-                              {category.name}
-                            </Badge>
-                          ) : null
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Possible Values */}
                 <div className="space-y-4">
-                  <div className="border-b border-ui-border-base pb-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Heading level="h3">Possible Values</Heading>
-                        <Text size="small" className="text-ui-fg-subtle">
-                          Define predefined values for this attribute
-                        </Text>
-                      </div>
-                      <Button type="button" variant="secondary" size="small" onClick={addPossibleValue}>
-                        <Plus className="mr-2" />
-                        Add Value
-                      </Button>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <Heading level="h3">Possible Values</Heading>
+                    <Button type="button" variant="secondary" onClick={addPossibleValue}>
+                      <Plus className="mr-2" />
+                      Add Value
+                    </Button>
                   </div>
+                  <Text size="small" className="text-ui-fg-subtle">
+                    Define predefined values for this attribute. Leave empty to allow any value.
+                  </Text>
 
-                  <div className="space-y-3">
-                    <div className="bg-ui-bg-field border border-ui-border-base rounded-lg p-3">
-                      <Text size="small" className="text-ui-fg-muted">
-                        {formData.possible_values.filter(pv => pv.value.trim()).length === 0
-                          ? "No predefined values - customers can enter any value"
-                          : `${formData.possible_values.filter(pv => pv.value.trim()).length} predefined values`
-                        }
-                      </Text>
-                    </div>
-
-                    <div className="space-y-3 max-h-64 overflow-y-auto">
-                      {formData.possible_values.map((pv, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <Input
-                              value={pv.value}
-                              onChange={(e) => updatePossibleValue(index, e.target.value)}
-                              placeholder={`Value ${index + 1}`}
-                            />
-                          </div>
-                          {formData.possible_values.length > 1 && (
-                            <IconButton
-                              type="button"
-                              variant="transparent"
-                              onClick={() => removePossibleValue(index)}
-                            >
-                              <Trash />
-                            </IconButton>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {formData.possible_values.length === 0 && (
-                      <div className="text-center py-8 border border-dashed border-ui-border-base rounded-lg">
-                        <Text className="text-ui-fg-muted mb-2">No possible values defined</Text>
-                        <Button type="button" variant="secondary" onClick={addPossibleValue}>
-                          Add First Value
-                        </Button>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {formData.possible_values.map((pv, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={pv.value}
+                          onChange={(e) => updatePossibleValue(index, e.target.value)}
+                          placeholder={`Value ${index + 1}`}
+                        />
+                        {formData.possible_values.length > 1 && (
+                          <IconButton
+                            type="button"
+                            variant="transparent"
+                            onClick={() => removePossibleValue(index)}
+                          >
+                            <Trash />
+                          </IconButton>
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               </div>
@@ -926,7 +599,7 @@ const AttributesPage = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" isLoading={isSubmitting}>
                   {editingAttribute ? 'Update' : 'Create'} Attribute
                 </Button>
               </div>
