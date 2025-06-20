@@ -30,7 +30,9 @@
   ],
   "scripts": {
     "build": "medusa plugin:build",
-    "dev": "medusa plugin:develop",
+    "develop": "npx medusa plugin:develop",
+    "clean": "rm -rf .medusa",
+    "build": "npx medusa plugin:build",
     "prepublishOnly": "medusa plugin:build"
   },
   "devDependencies": {
